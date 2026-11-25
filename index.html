@@ -142,7 +142,7 @@ const KIND_LABEL = { video: '動画', shorts: 'Shorts', live: 'ライブ' };
 const KIND_ORDER = { video: 0, live: 1, shorts: 2 };
 const TAGS = ['共感','反論','疑問','納得','保留'];
 const POST_KINDS = ['進捗','対決','回収','比較','適用','用語','疑問'];
-function postKindOf(p){ return POST_KINDS.indexOf(p.kind) >= 0 ? p.kind : '対決'; }
+function postKindOf(p){ if(p.kind === '気づき') return '気づき'; return POST_KINDS.indexOf(p.kind) >= 0 ? p.kind : '対決'; }
 
 function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtDur(sec){ if(sec==null) return '—'; sec=Math.round(sec); const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
@@ -627,8 +627,17 @@ function renderPosts(){
   const kindOpts = (sel)=>POST_KINDS.map(k=>'<option value="'+k+'"'+(k===sel?' selected':'')+'>'+k+'</option>').join('');
   el.innerHTML = `
     <div class="card">
+      <p style="margin:0 0 6px"><strong>気づきを書く</strong></p>
+      <p class="muted" style="margin:0 0 8px">動画と関係ない気づきも、ここに放り込めます。入れると下の候補に増えます。</p>
+      <textarea id="insightBody" style="min-height:72px" placeholder="気づいたことを、そのままの言葉で"></textarea>
+      <div class="row" style="margin-top:8px">
+        <span class="grow"></span>
+        <button class="primary" id="insightBtn">入れる</button>
+      </div>
+    </div>
+    <div class="card">
       <div class="row">${tabBtn('candidate','候補')} ${tabBtn('draft','下書き')} ${tabBtn('posted','投稿済み')}</div>
-      <div class="row" style="margin-top:8px">${kindChip('all','型すべて')}${POST_KINDS.map(k=>kindChip(k,k)).join('')}</div>
+      <div class="row" style="margin-top:8px">${kindChip('all','型すべて')}${kindChip('気づき','気づき')}${POST_KINDS.map(k=>kindChip(k,k)).join('')}</div>
       <p class="muted" style="margin:8px 0 0">下書きは君の言葉だけ。投稿は自分で選んで行います。</p>
       <div class="row" style="margin-top:9px">
         <span class="muted">型</span>
@@ -652,8 +661,22 @@ function renderPosts(){
         ${p.status!=='posted' ? '<button class="small gold" data-done-post="'+p.id+'">投稿した</button>' : '<span class="muted">'+(p.post_url? '<a href="'+esc(p.post_url)+'" target="_blank" rel="noopener">投稿を見る</a>' : '投稿済み')+'</span>'}
         <button class="small ghost" data-del-post="${p.id}">消す</button>
       </div>
-      ${p.video_id && S.vmap[p.video_id] ? '<div class="muted" style="margin-top:4px">出典：'+esc(S.vmap[p.video_id].title)+'</div>' : ''}
-    </div>`).join('') || '<div class="card"><p class="muted">'+(kf==='all' ? 'まだありません。動画ノートから候補が貯まります。' : 'この型はまだありません。「＋ 新しく書く」で型を選んで作れます。')+'</p></div>'}`;
+      ${p.video_id && S.vmap[p.video_id] ? '<div class="muted" style="margin-top:4px">出典：'+esc(S.vmap[p.video_id].title)+'</div>' : (p.source ? '<div class="muted" style="margin-top:4px">出典：'+esc(p.source)+'</div>' : '')}
+    </div>`).join('') || '<div class="card"><p class="muted">'+(kf==='all' ? 'まだありません。動画ノートから候補が貯まります。上の「気づきを書く」からも入れられます。' : 'この型はまだありません。「＋ 新しく書く」で型を選んで作れます。')+'</p></div>'}`;
+  const ib = document.getElementById('insightBody');
+  if(ib){
+    ib.value = localStorage.getItem('vn-insight-draft') || '';
+    ib.addEventListener('input', ()=> localStorage.setItem('vn-insight-draft', ib.value));
+  }
+  document.getElementById('insightBtn').addEventListener('click', async ()=>{
+    const body = (document.getElementById('insightBody').value || '').trim();
+    if(!body){ toast('気づきを書いてください'); return; }
+    const { data, error } = await sb.from('vn_posts').insert({ body, status: 'candidate', kind: '気づき' }).select().single();
+    if(error || !data){ toast('入れられませんでした'); return; }
+    localStorage.removeItem('vn-insight-draft');
+    S.posts.unshift(data); S.postTab = 'candidate'; S.postKind = 'all'; renderPosts();
+    toast('入れました。下の候補に増えています');
+  });
   el.querySelectorAll('[data-ptab]').forEach(c=> c.addEventListener('click', ()=>{ S.postTab = c.dataset.ptab; S.postKind = 'all'; renderPosts(); }));
   el.querySelectorAll('[data-pkind]').forEach(c=> c.addEventListener('click', ()=>{ S.postKind = c.dataset.pkind; renderPosts(); }));
   document.getElementById('newPostBtn').addEventListener('click', async ()=>{
