@@ -85,6 +85,29 @@
   .hidden{display:none !important}
   a{color:var(--mori2)}
   .foot{color:var(--ink2); font-size:11.5px; text-align:center; padding:18px 10px 4px}
+
+  .strip{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--line); border-radius:12px; padding:11px 13px; margin:0 0 9px; cursor:pointer}
+  .strip .shead{display:flex; gap:8px; align-items:baseline; font-size:11.5px; color:var(--ink2)}
+  .strip .shead .cat{font-weight:700}
+  .strip .shead .sdet{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:38%}
+  .strip .sbody{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif; font-size:16.5px; line-height:1.6; margin-top:4px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-line}
+  .strip.open{cursor:default}
+  .strip.bake1{background:#faf3df}
+  .strip.bake2{background:#f6edd2}
+  .strip.bake3{background:#f0e1ba}
+  .strip[data-cat="video"]{border-left-color:var(--mori2)}
+  .strip[data-cat="video"] .cat{color:var(--mori2)}
+  .strip[data-cat="horibako"]{border-left-color:#a4762a}
+  .strip[data-cat="horibako"] .cat{color:#a4762a}
+  .strip[data-cat="sekisho"]{border-left-color:#5b7a8c}
+  .strip[data-cat="sekisho"] .cat{color:#5b7a8c}
+  .strip[data-cat="kaigi"]{border-left-color:#b4654a}
+  .strip[data-cat="kaigi"] .cat{color:#b4654a}
+  .strip[data-cat="moko"]{border-left-color:#7a9a6d}
+  .strip[data-cat="moko"] .cat{color:#5f7f55}
+  .strip .longmark{color:var(--danger); font-weight:700}
+  .srcchips{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch}
+  .srcchips .chip{flex:none}
 </style>
 </head>
 <body>
@@ -135,6 +158,7 @@ const S = {
   listFilter: { ch: 'all', kind: 'all', state: 'all', q: '' },
   postTab: 'candidate',
   postKind: 'all',
+  postSrc: 'all', postOpen: null, postQ: '', postRot: 0, reunionId: null,
   curVideo: null,
   transcripts: {},
 };
@@ -616,53 +640,126 @@ function bindNoteView(vid){
 </script>
 <script>
 /* ---------- posts ---------- */
+function postSourceCat(p){
+  if(p.video_id) return { key:'video', label:'視聴ノート', detail: S.vmap[p.video_id] ? S.vmap[p.video_id].title : '' };
+  const s = p.source || '';
+  if(s.indexOf('放り箱')===0) return { key:'horibako', label:'放り箱', detail:s };
+  if(s.indexOf('関所')===0) return { key:'sekisho', label:'関所の解体', detail:s };
+  if(s.indexOf('ありさとの会議')===0) return { key:'kaigi', label:'ありさとの会議', detail:s };
+  if(s.indexOf('モコとの会話')===0) return { key:'moko', label:'モコとの会話', detail:s };
+  return { key:'insight', label:'工房の気づき', detail:'' };
+}
+function postDate(p){
+  const s = p.source || '';
+  const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+  return new Date(p.created_at);
+}
+function relTime(d){
+  const days = Math.floor((Date.now() - d.getTime())/86400000);
+  if(days<=0) return '今日';
+  if(days===1) return '昨日';
+  if(days<7) return days+'日前';
+  if(days<30) return Math.floor(days/7)+'週間前';
+  if(days<365) return Math.floor(days/30)+'か月前';
+  return Math.floor(days/365)+'年前';
+}
+function bakeClass(p){
+  const days = (Date.now() - postDate(p).getTime())/86400000;
+  return days<7 ? '' : days<30 ? ' bake1' : days<90 ? ' bake2' : ' bake3';
+}
+function gramsOf(text){
+  const t = (text||'').replace(/\s+/g,'');
+  const g = new Set();
+  for(let i=0; i+4<=t.length; i++) g.add(t.substr(i,4));
+  return g;
+}
+function findReunion(newBody, excludeId){
+  const g = gramsOf(newBody);
+  let best = null, bestScore = 0;
+  S.posts.forEach(p=>{
+    if(p.id===excludeId || p.status==='posted') return;
+    const pg = gramsOf(p.body);
+    let score = 0;
+    g.forEach(x=>{ if(pg.has(x)) score++; });
+    if(score>bestScore){ bestScore = score; best = p; }
+  });
+  return bestScore>=3 ? best : null;
+}
 function renderPosts(){
   const el = document.getElementById('view-posts');
   const tab = S.postTab;
-  const kf = S.postKind;
+  const sf = S.postSrc || 'all';
+  const q = (S.postQ || '').trim();
   const inTab = S.posts.filter(p=>p.status===tab);
-  const rows = inTab.filter(p=> kf==='all' || postKindOf(p)===kf);
+  const SRC_CHIPS = [['all','すべて'],['video','視聴ノート'],['horibako','放り箱'],['sekisho','関所の解体'],['kaigi','ありさとの会議'],['moko','モコとの会話'],['insight','工房の気づき']];
+  let rows = inTab.filter(p=> sf==='all' || postSourceCat(p).key===sf);
+  if(q) rows = rows.filter(p=> (p.body||'').indexOf(q)>=0 || (p.source||'').indexOf(q)>=0 || ((S.vmap[p.video_id]||{}).title || '').indexOf(q)>=0);
+  if(tab==='candidate' && sf==='all' && !q){
+    const recent = Date.now() - 14*86400000;
+    const postedKinds = new Set(S.posts.filter(p=>p.status==='posted' && new Date(p.updated_at||p.created_at).getTime()>recent).map(p=>postKindOf(p)));
+    const asc = [...rows].sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
+    const rot = asc.length ? ((S.postRot||0) % asc.length) : 0;
+    const rotated = asc.slice(rot).concat(asc.slice(0,rot));
+    rows = rotated.filter(p=> !postedKinds.has(postKindOf(p))).concat(rotated.filter(p=> postedKinds.has(postKindOf(p))));
+  } else {
+    rows = [...rows].sort((a,b)=> new Date(b.created_at)-new Date(a.created_at));
+  }
   const tabBtn = (val,label)=>'<span class="chip '+(tab===val?'on':'')+'" data-ptab="'+val+'">'+label+'（'+S.posts.filter(p=>p.status===val).length+'）</span>';
-  const kindChip = (val,label)=>'<span class="chip '+(kf===val?'on':'')+'" data-pkind="'+val+'">'+label+'（'+(val==='all' ? inTab.length : inTab.filter(p=>postKindOf(p)===val).length)+'）</span>';
-  const kindOpts = (sel)=>POST_KINDS.map(k=>'<option value="'+k+'"'+(k===sel?' selected':'')+'>'+k+'</option>').join('');
+  const srcChip = (val,label)=>'<span class="chip '+(sf===val?'on':'')+'" data-psrc="'+val+'">'+label+'（'+(val==='all' ? inTab.length : inTab.filter(p=>postSourceCat(p).key===val).length)+'）</span>';
+  const headDetail = (p, cat)=>{
+    if(cat.key==='horibako'){ const m = (p.source||'').match(/「([^」]+)」/); return m ? m[1] : ''; }
+    if(cat.key==='video') return cat.detail || '';
+    return '';
+  };
+  const strip = (p)=>{
+    const cat = postSourceCat(p);
+    const len = (p.body||'').length;
+    const det = headDetail(p, cat);
+    const head = '<div class="shead"><span class="cat">'+esc(cat.label)+'</span>'
+      + (det ? '<span class="sdet">'+esc(det)+'</span>' : '')
+      + '<span class="grow"></span><span>'+relTime(postDate(p))+'</span>'
+      + '<span>'+len+'字'+(len>140 ? ' <span class="longmark">140字超</span>' : '')+'</span></div>';
+    if(S.postOpen !== p.id){
+      return '<div class="strip'+bakeClass(p)+'" data-cat="'+cat.key+'" data-open-strip="'+p.id+'">'+head
+        + '<div class="sbody">'+esc(p.body)+'</div></div>';
+    }
+    return '<div class="strip open'+bakeClass(p)+'" data-cat="'+cat.key+'">'+head
+      + '<textarea id="post-'+p.id+'" data-post-input="'+p.id+'" style="min-height:96px; margin-top:8px">'+esc(p.body)+'</textarea>'
+      + '<div class="row" style="margin-top:7px">'
+      + '<span class="savestate" id="pss-'+p.id+'"></span><span class="grow"></span>'
+      + '<button class="small" data-copy-post="'+p.id+'">コピー</button>'
+      + '<button class="small primary" data-x-post="'+p.id+'">Xで書く</button>'
+      + (p.status==='candidate' ? '<button class="small" data-draft-post="'+p.id+'">下書きへ</button>' : '')
+      + (p.status==='draft' ? '<button class="small" data-cand-post="'+p.id+'">候補へ戻す</button>' : '')
+      + (p.status!=='posted' ? '<button class="small gold" data-done-post="'+p.id+'">投稿した</button>' : '<span class="muted">'+(p.post_url ? '<a href="'+esc(p.post_url)+'" target="_blank" rel="noopener">投稿を見る</a>' : '投稿済み')+'</span>')
+      + '<button class="small ghost" data-del-post="'+p.id+'">消す</button>'
+      + '</div>'
+      + (cat.detail ? '<div class="muted" style="margin-top:5px">出典：'+esc(cat.detail)+'</div>' : '')
+      + '</div>';
+  };
+  const reunion = S.reunionId ? S.posts.find(p=>p.id===S.reunionId) : null;
   el.innerHTML = `
     <div class="card">
       <p style="margin:0 0 6px"><strong>気づきを書く</strong></p>
-      <p class="muted" style="margin:0 0 8px">動画と関係ない気づきも、ここに放り込めます。入れると下の候補に増えます。</p>
-      <textarea id="insightBody" style="min-height:72px" placeholder="気づいたことを、そのままの言葉で"></textarea>
+      <textarea id="insightBody" style="min-height:64px" placeholder="気づいたことを、そのままの言葉で"></textarea>
       <div class="row" style="margin-top:8px">
         <span class="grow"></span>
         <button class="primary" id="insightBtn">入れる</button>
       </div>
     </div>
+    ${reunion ? '<p class="muted" style="margin:2px 2px 6px">書いた言葉で、昔の種が浮いてきました</p>' + strip(reunion) : ''}
     <div class="card">
-      <div class="row">${tabBtn('candidate','候補')} ${tabBtn('draft','下書き')} ${tabBtn('posted','投稿済み')}</div>
-      <div class="row" style="margin-top:8px">${kindChip('all','型すべて')}${kindChip('気づき','気づき')}${POST_KINDS.map(k=>kindChip(k,k)).join('')}</div>
-      <p class="muted" style="margin:8px 0 0">下書きは君の言葉だけ。投稿は自分で選んで行います。</p>
-      <div class="row" style="margin-top:9px">
-        <span class="muted">型</span>
-        <select class="kindsel" id="newPostKind">${kindOpts('対決')}</select>
-        <button class="primary" id="newPostBtn">＋ 新しく書く</button>
-      </div>
-    </div>
-    ${rows.map(p=>`
-    <div class="card">
-      <div class="row" style="margin-bottom:7px">
-        <span class="badge kind" data-kind-badge="${p.id}">${esc(postKindOf(p))}</span>
+      <div class="row">${tabBtn('candidate','候補')} ${tabBtn('draft','下書き')} ${tabBtn('posted','投稿済み')}
         <span class="grow"></span>
-        <span class="muted">型を変える</span>
-        <select class="kindsel" data-kind-post="${p.id}">${kindOpts(postKindOf(p))}</select>
+        ${tab==='candidate' ? '<button class="small ghost" id="rotBtn">入れ替え</button>' : ''}
+        <button class="small" id="newPostBtn">＋ 新しく書く</button>
       </div>
-      <textarea id="post-${p.id}" data-post-input="${p.id}" style="min-height:88px">${esc(p.body)}</textarea>
-      <div class="row" style="margin-top:7px">
-        <span class="savestate" id="pss-${p.id}"></span><span class="grow"></span>
-        <button class="small" data-copy-post="${p.id}">コピー</button>
-        <button class="small" data-x-post="${p.id}">Xで開く</button>
-        ${p.status!=='posted' ? '<button class="small gold" data-done-post="'+p.id+'">投稿した</button>' : '<span class="muted">'+(p.post_url? '<a href="'+esc(p.post_url)+'" target="_blank" rel="noopener">投稿を見る</a>' : '投稿済み')+'</span>'}
-        <button class="small ghost" data-del-post="${p.id}">消す</button>
-      </div>
-      ${p.video_id && S.vmap[p.video_id] ? '<div class="muted" style="margin-top:4px">出典：'+esc(S.vmap[p.video_id].title)+'</div>' : (p.source ? '<div class="muted" style="margin-top:4px">出典：'+esc(p.source)+'</div>' : '')}
-    </div>`).join('') || '<div class="card"><p class="muted">'+(kf==='all' ? 'まだありません。動画ノートから候補が貯まります。上の「気づきを書く」からも入れられます。' : 'この型はまだありません。「＋ 新しく書く」で型を選んで作れます。')+'</p></div>'}`;
+      <div class="srcchips" style="margin-top:9px">${SRC_CHIPS.map(c=>srcChip(c[0],c[1])).join('')}</div>
+      <input type="text" id="postSearch" placeholder="言葉で探す" value="${esc(S.postQ||'')}" style="margin-top:9px">
+      <p class="muted" style="margin:8px 0 0">${tab==='candidate' ? inTab.length+'個の言葉が眠っています。' : tab==='draft' ? '下書きは君の言葉だけ。' : '出した言葉の足跡です。'}</p>
+    </div>
+    ${rows.map(strip).join('') || '<div class="card"><p class="muted">ここにはまだありません。</p></div>'}`;
   const ib = document.getElementById('insightBody');
   if(ib){
     ib.value = localStorage.getItem('vn-insight-draft') || '';
@@ -674,24 +771,32 @@ function renderPosts(){
     const { data, error } = await sb.from('vn_posts').insert({ body, status: 'candidate', kind: '気づき' }).select().single();
     if(error || !data){ toast('入れられませんでした'); return; }
     localStorage.removeItem('vn-insight-draft');
-    S.posts.unshift(data); S.postTab = 'candidate'; S.postKind = 'all'; renderPosts();
-    toast('入れました。下の候補に増えています');
+    S.posts.unshift(data);
+    const re = findReunion(body, data.id);
+    S.reunionId = re ? re.id : null;
+    S.postTab = 'candidate'; S.postSrc = 'all'; S.postQ = ''; S.postOpen = null;
+    renderPosts();
+    toast('入れました');
   });
-  el.querySelectorAll('[data-ptab]').forEach(c=> c.addEventListener('click', ()=>{ S.postTab = c.dataset.ptab; S.postKind = 'all'; renderPosts(); }));
-  el.querySelectorAll('[data-pkind]').forEach(c=> c.addEventListener('click', ()=>{ S.postKind = c.dataset.pkind; renderPosts(); }));
+  el.querySelectorAll('[data-ptab]').forEach(c=> c.addEventListener('click', ()=>{ S.postTab = c.dataset.ptab; S.postSrc = 'all'; S.postOpen = null; S.reunionId = null; renderPosts(); }));
+  el.querySelectorAll('[data-psrc]').forEach(c=> c.addEventListener('click', ()=>{ S.postSrc = c.dataset.psrc; S.postOpen = null; renderPosts(); }));
+  const rotBtn = document.getElementById('rotBtn');
+  if(rotBtn) rotBtn.addEventListener('click', ()=>{ S.postRot = (S.postRot||0) + 5; S.postOpen = null; renderPosts(); });
+  const searchEl = document.getElementById('postSearch');
+  if(searchEl){
+    searchEl.addEventListener('focus', ()=>{ S._searchFocus = true; });
+    searchEl.addEventListener('blur', ()=>{ S._searchFocus = false; });
+    searchEl.addEventListener('input', ()=>{
+      clearTimeout(saveTimers['postsearch']);
+      saveTimers['postsearch'] = setTimeout(()=>{ S.postQ = searchEl.value; S.postOpen = null; renderPosts(); }, 350);
+    });
+    if(S._searchFocus){ searchEl.focus(); try{ searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length); }catch(e){} }
+  }
   document.getElementById('newPostBtn').addEventListener('click', async ()=>{
-    const kind = document.getElementById('newPostKind').value;
-    const { data, error } = await sb.from('vn_posts').insert({ body: '', status: S.postTab==='posted' ? 'draft' : S.postTab, kind }).select().single();
-    if(!error && data){ S.posts.unshift(data); if(S.postTab==='posted') S.postTab='draft'; S.postKind = kind; renderPosts(); }
+    const { data, error } = await sb.from('vn_posts').insert({ body: '', status: S.postTab==='posted' ? 'draft' : S.postTab }).select().single();
+    if(!error && data){ S.posts.unshift(data); if(S.postTab==='posted') S.postTab='draft'; S.postSrc='all'; S.postQ=''; S.postOpen = data.id; renderPosts(); }
   });
-  el.querySelectorAll('[data-kind-post]').forEach(sel=> sel.addEventListener('change', async ()=>{
-    const id = sel.dataset.kindPost;
-    const { error } = await sb.from('vn_posts').update({ kind: sel.value, updated_at: new Date().toISOString() }).eq('id', id);
-    if(error){ toast('型を変えられませんでした'); return; }
-    const p = S.posts.find(x=>x.id===id); if(p) p.kind = sel.value;
-    const badge = el.querySelector('[data-kind-badge="'+id+'"]'); if(badge) badge.textContent = sel.value;
-    toast('型を「'+sel.value+'」にしました');
-  }));
+  el.querySelectorAll('[data-open-strip]').forEach(s=> s.addEventListener('click', ()=>{ S.postOpen = s.dataset.openStrip; S.reunionId = null; renderPosts(); }));
   el.querySelectorAll('[data-post-input]').forEach(t=> t.addEventListener('input', ()=>{
     const id = t.dataset.postInput;
     const st = document.getElementById('pss-'+id); if(st) st.textContent = '端末に下書き…';
@@ -713,15 +818,25 @@ function renderPosts(){
     const t = document.getElementById('post-'+b.dataset.xPost);
     window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(t.value), '_blank');
   }));
+  el.querySelectorAll('[data-draft-post]').forEach(b=> b.addEventListener('click', async ()=>{
+    const { error } = await sb.from('vn_posts').update({ status: 'draft', updated_at: new Date().toISOString() }).eq('id', b.dataset.draftPost);
+    if(!error){ const p = S.posts.find(x=>x.id===b.dataset.draftPost); if(p) p.status='draft'; S.postTab='draft'; S.postOpen=null; renderPosts(); toast('下書きにしました'); }
+  }));
+  el.querySelectorAll('[data-cand-post]').forEach(b=> b.addEventListener('click', async ()=>{
+    const { error } = await sb.from('vn_posts').update({ status: 'candidate', updated_at: new Date().toISOString() }).eq('id', b.dataset.candPost);
+    if(!error){ const p = S.posts.find(x=>x.id===b.dataset.candPost); if(p) p.status='candidate'; S.postTab='candidate'; S.postOpen=null; renderPosts(); toast('候補に戻しました'); }
+  }));
   el.querySelectorAll('[data-done-post]').forEach(b=> b.addEventListener('click', async ()=>{
     const url = prompt('投稿のURL（空でもOK）', '');
+    if(url === null) return;
     const { error } = await sb.from('vn_posts').update({ status: 'posted', post_url: url || null, updated_at: new Date().toISOString() }).eq('id', b.dataset.donePost);
-    if(!error){ const p = S.posts.find(x=>x.id===b.dataset.donePost); if(p){ p.status='posted'; p.post_url = url||null; } renderPosts(); toast('投稿済みにしました'); }
+    if(!error){ const p = S.posts.find(x=>x.id===b.dataset.donePost); if(p){ p.status='posted'; p.post_url = url||null; } S.postOpen=null; renderPosts(); toast('投稿済みにしました'); }
   }));
   el.querySelectorAll('[data-del-post]').forEach(b=> b.addEventListener('click', async ()=>{
-    if(!confirm('この下書きを消しますか？')) return;
+    if(!confirm('この種を消しますか？')) return;
     await sb.from('vn_posts').delete().eq('id', b.dataset.delPost);
     S.posts = S.posts.filter(p=>p.id!==b.dataset.delPost);
+    S.postOpen = null;
     renderPosts();
   }));
 }
