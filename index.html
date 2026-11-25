@@ -89,7 +89,7 @@
   .strip{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--line); border-radius:12px; padding:11px 13px; margin:0 0 9px; cursor:pointer}
   .strip .shead{display:flex; gap:8px; align-items:baseline; font-size:11.5px; color:var(--ink2)}
   .strip .shead .cat{font-weight:700}
-  .strip .shead .sdet{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:38%}
+  .strip .sdet{display:block; margin-top:2px; font-size:11.5px; color:var(--ink2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .strip .sbody{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif; font-size:16.5px; line-height:1.6; margin-top:4px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-line}
   .strip.open{cursor:default}
   .strip.bake1{background:#faf3df}
@@ -708,7 +708,8 @@ function renderPosts(){
   const tabBtn = (val,label)=>'<span class="chip '+(tab===val?'on':'')+'" data-ptab="'+val+'">'+label+'（'+S.posts.filter(p=>p.status===val).length+'）</span>';
   const srcChip = (val,label)=>'<span class="chip '+(sf===val?'on':'')+'" data-psrc="'+val+'">'+label+'（'+(val==='all' ? inTab.length : inTab.filter(p=>postSourceCat(p).key===val).length)+'）</span>';
   const headDetail = (p, cat)=>{
-    if(cat.key==='horibako'){ const m = (p.source||'').match(/「([^」]+)」/); return m ? m[1] : ''; }
+    if(cat.key==='horibako'){ const s = (p.source||'').replace(/^放り箱/, ''); return s || ''; }
+    if(cat.key==='sekisho'){ const s = (p.source||'').replace(/^関所の解体/, ''); return s || ''; }
     if(cat.key==='video') return cat.detail || '';
     return '';
   };
@@ -717,9 +718,9 @@ function renderPosts(){
     const len = (p.body||'').length;
     const det = headDetail(p, cat);
     const head = '<div class="shead"><span class="cat">'+esc(cat.label)+'</span>'
-      + (det ? '<span class="sdet">'+esc(det)+'</span>' : '')
       + '<span class="grow"></span><span>'+relTime(postDate(p))+'</span>'
-      + '<span>'+len+'字'+(len>140 ? ' <span class="longmark">140字超</span>' : '')+'</span></div>';
+      + '<span>'+len+'字'+(len>140 ? ' <span class="longmark">140字超</span>' : '')+'</span></div>'
+      + (det ? '<span class="sdet">'+esc(det)+'</span>' : '');
     if(S.postOpen !== p.id){
       return '<div class="strip'+bakeClass(p)+'" data-cat="'+cat.key+'" data-open-strip="'+p.id+'">'+head
         + '<div class="sbody">'+esc(p.body)+'</div></div>';
