@@ -44,6 +44,8 @@
   .badge.shorts{background:#dfe9e2; color:#2e5d43}
   .badge.live{background:#f3ddda; color:#8c3a2c}
   .badge.done{background:var(--mori2); color:#eaf2ec}
+  .badge.kind{background:var(--accent); color:#fff; font-size:11.5px; padding:2px 9px; border-radius:999px}
+  select.kindsel{width:auto; padding:4px 8px; font-size:13px; border-radius:8px}
   input[type=text],input[type=password],input[type=url],textarea,select{
     font:inherit; width:100%; border:1px solid var(--line); border-radius:10px; padding:9px 11px;
     background:#fff; color:var(--ink)}
@@ -132,12 +134,15 @@ const S = {
   view: 'home',
   listFilter: { ch: 'all', kind: 'all', state: 'all', q: '' },
   postTab: 'candidate',
+  postKind: 'all',
   curVideo: null,
   transcripts: {},
 };
 const KIND_LABEL = { video: '動画', shorts: 'Shorts', live: 'ライブ' };
 const KIND_ORDER = { video: 0, live: 1, shorts: 2 };
 const TAGS = ['共感','反論','疑問','納得','保留'];
+const POST_KINDS = ['進捗','対決','回収','比較','適用','用語','疑問'];
+function postKindOf(p){ return POST_KINDS.indexOf(p.kind) >= 0 ? p.kind : '対決'; }
 
 function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtDur(sec){ if(sec==null) return '—'; sec=Math.round(sec); const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
@@ -515,7 +520,7 @@ function bindNoteView(vid){
   });
   document.getElementById('progPostBtn').addEventListener('click', async ()=>{
     const body = '#インディーズ林インターン ' + watchedCount() + '/' + S.videos.length + '本目\n' + v.title + '\nhttps://www.youtube.com/watch?v=' + vid;
-    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, status: 'candidate' }).select().single();
+    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, status: 'candidate', kind: '進捗' }).select().single();
     if(!error && data){ S.posts.unshift(data); toast('ポスト候補に入れました'); }
   });
   document.querySelectorAll('[data-note-input]').forEach(t=> t.addEventListener('input', ()=>onNoteInput(t.dataset.noteInput)));
@@ -568,7 +573,7 @@ function bindNoteView(vid){
     const p = S.pairs.find(x=>x.id===b.dataset.makePostPair);
     if(!p) return;
     const body = '林「' + p.quote + '」' + (p.quote_ts!=null? '（'+fmtClock(p.quote_ts)+'）':'') + '\n俺：' + p.my_line + '\nhttps://www.youtube.com/watch?v=' + vid + '\n#インディーズ林インターン';
-    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, status: 'candidate' }).select().single();
+    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, status: 'candidate', kind: '対決' }).select().single();
     if(!error && data){ S.posts.unshift(data); toast('ポスト候補に入れました'); }
   }));
   document.getElementById('saveManualTr').addEventListener('click', async ()=>{
@@ -614,16 +619,31 @@ function bindNoteView(vid){
 function renderPosts(){
   const el = document.getElementById('view-posts');
   const tab = S.postTab;
-  const rows = S.posts.filter(p=>p.status===tab);
+  const kf = S.postKind;
+  const inTab = S.posts.filter(p=>p.status===tab);
+  const rows = inTab.filter(p=> kf==='all' || postKindOf(p)===kf);
   const tabBtn = (val,label)=>'<span class="chip '+(tab===val?'on':'')+'" data-ptab="'+val+'">'+label+'（'+S.posts.filter(p=>p.status===val).length+'）</span>';
+  const kindChip = (val,label)=>'<span class="chip '+(kf===val?'on':'')+'" data-pkind="'+val+'">'+label+'（'+(val==='all' ? inTab.length : inTab.filter(p=>postKindOf(p)===val).length)+'）</span>';
+  const kindOpts = (sel)=>POST_KINDS.map(k=>'<option value="'+k+'"'+(k===sel?' selected':'')+'>'+k+'</option>').join('');
   el.innerHTML = `
     <div class="card">
       <div class="row">${tabBtn('candidate','候補')} ${tabBtn('draft','下書き')} ${tabBtn('posted','投稿済み')}</div>
+      <div class="row" style="margin-top:8px">${kindChip('all','型すべて')}${POST_KINDS.map(k=>kindChip(k,k)).join('')}</div>
       <p class="muted" style="margin:8px 0 0">下書きは君の言葉だけ。投稿は自分で選んで行います。</p>
-      <div style="margin-top:9px"><button class="primary" id="newPostBtn">＋ 自由に書く</button></div>
+      <div class="row" style="margin-top:9px">
+        <span class="muted">型</span>
+        <select class="kindsel" id="newPostKind">${kindOpts('対決')}</select>
+        <button class="primary" id="newPostBtn">＋ 新しく書く</button>
+      </div>
     </div>
     ${rows.map(p=>`
     <div class="card">
+      <div class="row" style="margin-bottom:7px">
+        <span class="badge kind" data-kind-badge="${p.id}">${esc(postKindOf(p))}</span>
+        <span class="grow"></span>
+        <span class="muted">型を変える</span>
+        <select class="kindsel" data-kind-post="${p.id}">${kindOpts(postKindOf(p))}</select>
+      </div>
       <textarea id="post-${p.id}" data-post-input="${p.id}" style="min-height:88px">${esc(p.body)}</textarea>
       <div class="row" style="margin-top:7px">
         <span class="savestate" id="pss-${p.id}"></span><span class="grow"></span>
@@ -633,12 +653,22 @@ function renderPosts(){
         <button class="small ghost" data-del-post="${p.id}">消す</button>
       </div>
       ${p.video_id && S.vmap[p.video_id] ? '<div class="muted" style="margin-top:4px">出典：'+esc(S.vmap[p.video_id].title)+'</div>' : ''}
-    </div>`).join('') || '<div class="card"><p class="muted">まだありません。動画ノートから候補が貯まります。</p></div>'}`;
-  el.querySelectorAll('[data-ptab]').forEach(c=> c.addEventListener('click', ()=>{ S.postTab = c.dataset.ptab; renderPosts(); }));
+    </div>`).join('') || '<div class="card"><p class="muted">'+(kf==='all' ? 'まだありません。動画ノートから候補が貯まります。' : 'この型はまだありません。「＋ 新しく書く」で型を選んで作れます。')+'</p></div>'}`;
+  el.querySelectorAll('[data-ptab]').forEach(c=> c.addEventListener('click', ()=>{ S.postTab = c.dataset.ptab; S.postKind = 'all'; renderPosts(); }));
+  el.querySelectorAll('[data-pkind]').forEach(c=> c.addEventListener('click', ()=>{ S.postKind = c.dataset.pkind; renderPosts(); }));
   document.getElementById('newPostBtn').addEventListener('click', async ()=>{
-    const { data, error } = await sb.from('vn_posts').insert({ body: '', status: S.postTab==='posted' ? 'draft' : S.postTab }).select().single();
-    if(!error && data){ S.posts.unshift(data); if(S.postTab==='posted') S.postTab='draft'; renderPosts(); }
+    const kind = document.getElementById('newPostKind').value;
+    const { data, error } = await sb.from('vn_posts').insert({ body: '', status: S.postTab==='posted' ? 'draft' : S.postTab, kind }).select().single();
+    if(!error && data){ S.posts.unshift(data); if(S.postTab==='posted') S.postTab='draft'; S.postKind = kind; renderPosts(); }
   });
+  el.querySelectorAll('[data-kind-post]').forEach(sel=> sel.addEventListener('change', async ()=>{
+    const id = sel.dataset.kindPost;
+    const { error } = await sb.from('vn_posts').update({ kind: sel.value, updated_at: new Date().toISOString() }).eq('id', id);
+    if(error){ toast('型を変えられませんでした'); return; }
+    const p = S.posts.find(x=>x.id===id); if(p) p.kind = sel.value;
+    const badge = el.querySelector('[data-kind-badge="'+id+'"]'); if(badge) badge.textContent = sel.value;
+    toast('型を「'+sel.value+'」にしました');
+  }));
   el.querySelectorAll('[data-post-input]').forEach(t=> t.addEventListener('input', ()=>{
     const id = t.dataset.postInput;
     const st = document.getElementById('pss-'+id); if(st) st.textContent = '端末に下書き…';
@@ -718,7 +748,7 @@ function renderGrowth(){
     const p = S.pairs.find(x=>x.id===b.dataset.makePostPair);
     if(!p) return;
     const body = '林「' + p.quote + '」' + (p.quote_ts!=null? '（'+fmtClock(p.quote_ts)+'）':'') + '\n俺：' + p.my_line + '\nhttps://www.youtube.com/watch?v=' + p.video_id + '\n#インディーズ林インターン';
-    const { data, error } = await sb.from('vn_posts').insert({ video_id: p.video_id, body, status: 'candidate' }).select().single();
+    const { data, error } = await sb.from('vn_posts').insert({ video_id: p.video_id, body, status: 'candidate', kind: '対決' }).select().single();
     if(!error && data){ S.posts.unshift(data); toast('ポスト候補に入れました'); }
   }));
 }
