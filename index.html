@@ -89,7 +89,10 @@
   .strip{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--line); border-radius:12px; padding:11px 13px; margin:0 0 9px; cursor:pointer}
   .strip .shead{display:flex; gap:8px; align-items:baseline; font-size:11.5px; color:var(--ink2)}
   .strip .shead .cat{font-weight:700}
-  .strip .sdet{display:block; margin-top:2px; font-size:11.5px; color:var(--ink2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .refbox{margin-top:9px; border-left:3px solid var(--line); background:rgba(0,0,0,.03); padding:7px 10px; border-radius:0 8px 8px 0}
+.refbox .refhead{font-size:11px; color:var(--ink2); margin-bottom:3px}
+.refbox .refbody{font-size:13.5px; line-height:1.65; white-space:pre-wrap; word-break:break-word}
+.strip .sdet{display:block; margin-top:2px; font-size:11.5px; color:var(--ink2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .strip .sbody{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif; font-size:16.5px; line-height:1.6; margin-top:4px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-line}
   .strip.open{cursor:default}
   .strip.bake1{background:#faf3df}
@@ -737,6 +740,7 @@ function renderPosts(){
       + (p.status!=='posted' ? '<button class="small gold" data-done-post="'+p.id+'">投稿した</button>' : '<span class="muted">'+(p.post_url ? '<a href="'+esc(p.post_url)+'" target="_blank" rel="noopener">投稿を見る</a>' : '投稿済み')+'</span>')
       + '<button class="small ghost" data-del-post="'+p.id+'">消す</button>'
       + '</div>'
+      + (p.ref_text ? '<div class="refbox"><div class="refhead">元のポスト</div><div class="refbody">'+linkify(p.ref_text)+'</div></div>' : '')
       + (cat.detail ? '<div class="muted" style="margin-top:5px">出典：'+linkify(cat.detail)+'</div>' : '')
       + '</div>';
   };
