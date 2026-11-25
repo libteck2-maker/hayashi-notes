@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>視聴ノート｜インディーズ林インターン（非公式）</title>
+<meta name="theme-color" content="#14342b">
+<link rel="icon" href="icon-180.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --ink:#22302a; --ink2:#5a6a61; --paper:#f7f2e7; --card:#fffdf6;
+    --mori:#14342b; --mori2:#1e4d3f; --accent:#b98a2f; --line:#e2d9c6;
+    --danger:#b3402e; --ok:#2e7d4f;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0; padding:0}
+  body{background:var(--paper); color:var(--ink);
+    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+    font-size:15px; line-height:1.65; padding-bottom:84px}
+  h1,h2,h3,.serif{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif}
+  header{background:var(--mori); color:#f3ecd9; padding:14px 16px 12px; position:sticky; top:0; z-index:20}
+  header .ttl{font-size:19px; letter-spacing:.06em}
+  header .sub{font-size:11px; opacity:.75; margin-top:2px}
+  main{max-width:760px; margin:0 auto; padding:14px 12px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:0 0 12px;
+    box-shadow:0 1px 3px rgba(34,48,42,.06)}
+  .muted{color:var(--ink2); font-size:12.5px}
+  .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .grow{flex:1}
+  button{font:inherit; cursor:pointer; border-radius:10px; border:1px solid var(--line);
+    background:#fff; color:var(--ink); padding:8px 14px}
+  button.primary{background:var(--mori); color:#f3ecd9; border-color:var(--mori)}
+  button.gold{background:var(--accent); color:#fff; border-color:var(--accent)}
+  button.ghost{border-color:transparent; background:transparent; color:var(--ink2)}
+  button.small{padding:4px 10px; font-size:13px; border-radius:8px}
+  button:disabled{opacity:.45}
+  .chip{display:inline-block; padding:3px 11px; border-radius:999px; border:1px solid var(--line);
+    background:#fff; font-size:12.5px; cursor:pointer; user-select:none}
+  .chip.on{background:var(--mori); color:#f3ecd9; border-color:var(--mori)}
+  .chip.tag-on{background:var(--accent); color:#fff; border-color:var(--accent)}
+  .badge{display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:6px; background:#e9e2cf; color:#6b5d33; vertical-align:2px}
+  .badge.shorts{background:#dfe9e2; color:#2e5d43}
+  .badge.live{background:#f3ddda; color:#8c3a2c}
+  .badge.done{background:var(--mori2); color:#eaf2ec}
+  input[type=text],input[type=password],input[type=url],textarea,select{
+    font:inherit; width:100%; border:1px solid var(--line); border-radius:10px; padding:9px 11px;
+    background:#fff; color:var(--ink)}
+  textarea{resize:vertical; min-height:64px}
+  label.flabel{display:block; font-size:12.5px; color:var(--ink2); margin:10px 0 4px}
+  .prog{height:10px; background:#e9e2cf; border-radius:99px; overflow:hidden}
+  .prog > div{height:100%; background:var(--mori2); border-radius:99px}
+  .big-num{font-size:26px; font-weight:700}
+  nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:30; background:rgba(20,52,43,.97);
+    display:flex; padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  nav.tabs button{flex:1; background:transparent; border:none; color:#cfd8cd; font-size:11.5px; padding:7px 2px; border-radius:8px}
+  nav.tabs button.on{color:#fff; background:rgba(255,255,255,.13)}
+  nav.tabs .ic{display:block; font-size:17px; line-height:1.2}
+  .vrow{display:flex; gap:10px; padding:11px 4px; border-bottom:1px solid var(--line); cursor:pointer; align-items:flex-start}
+  .vrow:last-child{border-bottom:none}
+  .vrow .thumb{width:104px; flex:none; border-radius:8px; aspect-ratio:16/9; object-fit:cover; background:#ddd}
+  .vrow .vt{font-size:14px; line-height:1.45}
+  .seg{padding:7px 9px; border-radius:8px; cursor:pointer; font-size:13.5px}
+  .seg:hover{background:#f0e9d8}
+  .seg .st{color:var(--accent); font-size:11.5px; margin-right:7px; font-variant-numeric:tabular-nums}
+  details.shiryo{border:1px dashed var(--line); border-radius:12px; padding:10px 12px; background:#fbf7ec}
+  details.shiryo summary{cursor:pointer; font-size:13.5px; color:var(--ink2)}
+  .savestate{font-size:12px; color:var(--ink2)}
+  .savestate.err{color:var(--danger)}
+  .pairbox{border-left:3px solid var(--accent); background:#fbf6e9; border-radius:0 10px 10px 0; padding:9px 12px; margin:0 0 9px}
+  .pairbox .q{font-size:14px}
+  .pairbox .mine{font-size:14px; margin-top:5px}
+  .media-grid{display:flex; gap:8px; flex-wrap:wrap}
+  .media-grid img{width:104px; height:104px; object-fit:cover; border-radius:10px}
+  .media-grid iframe{width:168px; height:95px; border:0; border-radius:10px}
+  .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; z-index:50;
+    background:var(--mori); color:#f3ecd9; padding:9px 18px; border-radius:99px; font-size:13.5px;
+    opacity:0; pointer-events:none; transition:opacity .25s}
+  .toast.show{opacity:1}
+  .err{color:var(--danger); font-size:13px}
+  .login-wrap{max-width:400px; margin:12vh auto 0; padding:0 16px}
+  .hidden{display:none !important}
+  a{color:var(--mori2)}
+  .foot{color:var(--ink2); font-size:11.5px; text-align:center; padding:18px 10px 4px}
+</style>
+</head>
+<body>
+<header>
+  <div class="ttl serif">視聴ノート</div>
+  <div class="sub">インディーズ林インターン（非公式・自主活動）</div>
+</header>
+
+<div id="loginView" class="login-wrap hidden">
+  <div class="card">
+    <h2 class="serif" style="margin:4px 0 8px">合言葉をどうぞ</h2>
+    <p class="muted">本人のノートです。合言葉を入れると開きます。</p>
+    <input type="password" id="pwInput" autocomplete="current-password" placeholder="合言葉">
+    <div style="height:10px"></div>
+    <button class="primary" id="loginBtn" style="width:100%">開く</button>
+    <p class="err" id="loginErr"></p>
+  </div>
+</div>
+
+<main id="appView" class="hidden">
+  <section id="view-home"></section>
+  <section id="view-list" class="hidden"></section>
+  <section id="view-note" class="hidden"></section>
+  <section id="view-posts" class="hidden"></section>
+  <section id="view-growth" class="hidden"></section>
+  <div class="foot">非公式・自主活動の記録ページです。林さんの公式メンバーシップとは関係ありません。<br>
+  <button class="ghost small" id="exportBtn">記録を書き出す（JSON）</button>
+  <button class="ghost small" id="logoutBtn">閉じる（ログアウト）</button></div>
+</main>
+
+<nav class="tabs hidden" id="tabBar">
+  <button data-nav="home" class="on"><span class="ic">⌂</span>ホーム</button>
+  <button data-nav="list"><span class="ic">▤</span>動画一覧</button>
+  <button data-nav="posts"><span class="ic">✎</span>ポスト工房</button>
+  <button data-nav="growth"><span class="ic">❧</span>成長</button>
+</nav>
+<div class="toast" id="toast"></div>
+<script>
+const SB_URL = 'https://csqhsblosekjkjywgbcn.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzcWhzYmxvc2VramtqeXdnYmNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ5MjU1MDgsImV4cCI6MjExMDUwMTUwOH0.aGQh7DR9hKtMU5sVAViApeb8q6As5TfT-eeDmq-Vp6s';
+const LOGIN_EMAIL = 'libteck2@icloud.com';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+const S = {
+  user: null,
+  videos: [], vmap: {}, progress: {}, notes: [], pairs: [], posts: [], terms: [],
+  view: 'home',
+  listFilter: { ch: 'all', kind: 'all', state: 'all', q: '' },
+  postTab: 'candidate',
+  curVideo: null,
+  transcripts: {},
+};
+const KIND_LABEL = { video: '動画', shorts: 'Shorts', live: 'ライブ' };
+const KIND_ORDER = { video: 0, live: 1, shorts: 2 };
+const TAGS = ['共感','反論','疑問','納得','保留'];
+
+function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtDur(sec){ if(sec==null) return '—'; sec=Math.round(sec); const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
+  return h>0 ? h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0') : m+':'+String(s).padStart(2,'0'); }
+function fmtClock(sec){ if(sec==null) return ''; return fmtDur(sec); }
+function fmtDate(iso){ if(!iso) return ''; const d=new Date(iso); return d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate(); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+function watchedCount(){ return Object.values(S.progress).filter(p=>p.watched).length; }
+function isWatched(vid){ return !!(S.progress[vid] && S.progress[vid].watched); }
+function notesOf(vid){ return S.notes.filter(n=>n.video_id===vid); }
+function pairsOf(vid){ return S.pairs.filter(p=>p.video_id===vid); }
+function sortOldest(a,b){ if(a.channel!==b.channel) return a.channel<b.channel?-1:1;
+  if(KIND_ORDER[a.kind]!==KIND_ORDER[b.kind]) return KIND_ORDER[a.kind]-KIND_ORDER[b.kind];
+  return b.seq-a.seq; }
+
+/* ---------- login ---------- */
+async function tryLogin(){
+  const pw = document.getElementById('pwInput').value;
+  const err = document.getElementById('loginErr'); err.textContent='';
+  const btn = document.getElementById('loginBtn'); btn.disabled=true; btn.textContent='開いています…';
+  const { data, error } = await sb.auth.signInWithPassword({ email: LOGIN_EMAIL, password: pw });
+  btn.disabled=false; btn.textContent='開く';
+  if(error){ err.textContent='合言葉が違うようです。'; return; }
+  S.user = data.user; await boot();
+}
+document.getElementById('loginBtn').addEventListener('click', tryLogin);
+document.getElementById('pwInput').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
+document.getElementById('logoutBtn').addEventListener('click', async ()=>{ await sb.auth.signOut(); location.reload(); });
+
+async function boot(){
+  document.getElementById('loginView').classList.add('hidden');
+  document.getElementById('appView').classList.remove('hidden');
+  document.getElementById('tabBar').classList.remove('hidden');
+  await loadAll();
+  showView('home');
+}
+async function loadAll(){
+  const [vids, prog, notes, pairs, posts, terms] = await Promise.all([
+    sb.from('vn_videos').select('*').limit(2000),
+    sb.from('vn_progress').select('*').limit(2000),
+    sb.from('vn_notes').select('*').order('created_at',{ascending:true}).limit(2000),
+    sb.from('vn_pairs').select('*').order('created_at',{ascending:true}).limit(2000),
+    sb.from('vn_posts').select('*').order('created_at',{ascending:false}).limit(2000),
+    sb.from('vn_terms').select('*').order('created_at',{ascending:true}).limit(2000),
+  ]);
+  S.videos = (vids.data||[]).sort(sortOldest);
+  S.vmap = {}; S.videos.forEach(v=>S.vmap[v.video_id]=v);
+  S.progress = {}; (prog.data||[]).forEach(p=>S.progress[p.video_id]=p);
+  S.notes = notes.data||[]; S.pairs = pairs.data||[]; S.posts = posts.data||[]; S.terms = terms.data||[];
+}
+
+/* ---------- navigation ---------- */
+function showView(name){
+  S.view = name;
+  ['home','list','note','posts','growth'].forEach(v=>{
+    document.getElementById('view-'+v).classList.toggle('hidden', v!==name);
+  });
+  document.querySelectorAll('#tabBar button').forEach(b=>{
+    b.classList.toggle('on', b.dataset.nav===name || (name==='note' && b.dataset.nav==='list'));
+  });
+  if(name==='home') renderHome();
+  if(name==='list') renderList();
+  if(name==='posts') renderPosts();
+  if(name==='growth') renderGrowth();
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('#tabBar button').forEach(b=> b.addEventListener('click', ()=>showView(b.dataset.nav)));
+
+/* ---------- home ---------- */
+function nextOf(channel){
+  return S.videos.filter(v=>v.channel===channel && !isWatched(v.video_id))[0] || null;
+}
+function renderHome(){
+  const el = document.getElementById('view-home');
+  const total = S.videos.length, done = watchedCount();
+  const remainSec = S.videos.filter(v=>!isWatched(v.video_id)).reduce((a,v)=>a+(v.duration_sec||0),0);
+  const cand = S.posts.filter(p=>p.status==='candidate').length;
+  const holds = S.pairs.filter(p=>p.tag==='保留').length;
+  const chStat = ch => {
+    const all = S.videos.filter(v=>v.channel===ch);
+    const d = all.filter(v=>isWatched(v.video_id)).length;
+    return { all: all.length, d, name: all.length?all[0].channel_name:ch };
+  };
+  const b = chStat('birdandinsect'), h = chStat('hayashi_hayashi');
+  const nb = nextOf('birdandinsect'), nh = nextOf('hayashi_hayashi');
+  const nextCard = (v, label) => v ? `
+    <div class="card" data-open-video="${v.video_id}" style="cursor:pointer">
+      <div class="muted">${label}・次に見る（古い順）</div>
+      <div style="font-size:16px; margin:4px 0">${esc(v.title)}</div>
+      <div class="muted">${KIND_LABEL[v.kind]} ／ ${fmtDur(v.duration_sec)}</div>
+    </div>` : `<div class="card"><div class="muted">${label}</div>全部見ました。</div>`;
+  el.innerHTML = `
+    <div class="card">
+      <div class="row"><div class="grow"><span class="big-num">${done}</span> <span class="muted">／ 全${total}本</span></div>
+      <div class="muted">残り 約${Math.round(remainSec/3600)}時間</div></div>
+      <div class="prog" style="margin:8px 0 12px"><div style="width:${total?Math.round(done/total*100):0}%"></div></div>
+      ${[b,h].map(c=>`
+        <div class="row" style="margin:5px 0"><div class="grow">${esc(c.name)}</div>
+        <div class="muted">${c.d}／${c.all}本</div></div>
+        <div class="prog" style="height:6px"><div style="width:${c.all?Math.round(c.d/c.all*100):0}%"></div></div>`).join('')}
+      <div class="row" style="margin-top:12px">
+        <button class="primary grow" data-nav-go="posts">ポスト候補 ${cand}件</button>
+        <button class="grow" data-nav-go="growth">持ち越し（保留） ${holds}件</button>
+      </div>
+    </div>
+    ${nextCard(nb,'bird and insect')}
+    ${nextCard(nh,'林')}
+    <p class="muted" style="text-align:center">見る順番は古い順。感想は1本につき何回でも残せます。</p>`;
+  el.querySelectorAll('[data-open-video]').forEach(c=> c.addEventListener('click', ()=>openVideo(c.dataset.openVideo)));
+  el.querySelectorAll('[data-nav-go]').forEach(c=> c.addEventListener('click', ()=>showView(c.dataset.navGo)));
+}
+
+/* ---------- list ---------- */
+function renderList(){
+  const el = document.getElementById('view-list');
+  const f = S.listFilter;
+  let rows = S.videos.filter(v =>
+    (f.ch==='all' || v.channel===f.ch) &&
+    (f.kind==='all' || v.kind===f.kind) &&
+    (f.state==='all' || (f.state==='todo' ? !isWatched(v.video_id) : isWatched(v.video_id))) &&
+    (!f.q || v.title.toLowerCase().includes(f.q.toLowerCase())));
+  const chip = (group, val, label) => `<span class="chip ${f[group]===val?'on':''}" data-filter="${group}:${val}">${label}</span>`;
+  el.innerHTML = `
+    <div class="card">
+      <div class="row">
+        ${chip('ch','all','両方')} ${chip('ch','birdandinsect','bird and insect')} ${chip('ch','hayashi_hayashi','林')}
+      </div>
+      <div class="row" style="margin-top:7px">
+        ${chip('kind','all','全部')} ${chip('kind','video','動画')} ${chip('kind','live','ライブ')} ${chip('kind','shorts','Shorts')}
+        ${chip('state','all','状態すべて')} ${chip('state','todo','まだ')} ${chip('state','done','見た')}
+      </div>
+      <div style="margin-top:9px"><input type="text" id="listSearch" placeholder="タイトルで探す" value="${esc(f.q)}"></div>
+      <div class="muted" style="margin-top:6px">${rows.length}本（古い順）</div>
+    </div>
+    <div class="card" style="padding:4px 14px">
+      ${rows.map(v=>`
+        <div class="vrow" data-open-video="${v.video_id}">
+          <img class="thumb" loading="lazy" src="https://i.ytimg.com/vi/${v.video_id}/mqdefault.jpg" alt="">
+          <div class="grow">
+            <div class="vt">${esc(v.title)}</div>
+            <div class="muted">${esc(v.channel_name)} ・ <span class="badge ${v.kind}">${KIND_LABEL[v.kind]}</span> ${fmtDur(v.duration_sec)}
+            ${notesOf(v.video_id).length? '・ 感想'+notesOf(v.video_id).length : ''}
+            ${isWatched(v.video_id)? ' <span class="badge done">見た</span>':''}</div>
+          </div>
+        </div>`).join('') || '<p class="muted" style="padding:12px 0">見つかりませんでした。</p>'}
+    </div>`;
+  el.querySelectorAll('[data-filter]').forEach(c=> c.addEventListener('click', ()=>{
+    const [g,val] = c.dataset.filter.split(':'); S.listFilter[g]=val; renderList();
+  }));
+  const si = document.getElementById('listSearch');
+  si.addEventListener('input', ()=>{ S.listFilter.q = si.value; clearTimeout(si._t); si._t=setTimeout(renderList, 350); });
+  el.querySelectorAll('[data-open-video]').forEach(c=> c.addEventListener('click', ()=>openVideo(c.dataset.openVideo)));
+}
+</script>
+<script>
+/* ---------- note view ---------- */
+let saveTimers = {};
+function draftKey(noteId){ return 'vn-draft-' + noteId; }
+function setSaveState(noteId, text, isErr){
+  const el = document.getElementById('ss-' + noteId);
+  if(el){ el.textContent = text; el.classList.toggle('err', !!isErr); }
+}
+async function saveNote(noteId){
+  const rawEl = document.getElementById('raw-' + noteId);
+  const grownEl = document.getElementById('grown-' + noteId);
+  if(!rawEl || !grownEl) return;
+  const raw = rawEl.value, grown = grownEl.value;
+  setSaveState(noteId, '保存中…');
+  const { data, error } = await sb.from('vn_notes')
+    .update({ raw_text: raw, grown_text: grown, updated_at: new Date().toISOString() })
+    .eq('id', noteId).select().single();
+  if(error){ setSaveState(noteId, '保存できていません（端末には残っています）', true); return; }
+  const n = S.notes.find(x=>x.id===noteId);
+  if(n){ n.raw_text = raw; n.grown_text = grown; n.updated_at = data.updated_at; }
+  localStorage.removeItem(draftKey(noteId));
+  const d = new Date();
+  setSaveState(noteId, '保存済み ' + d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0'));
+}
+function onNoteInput(noteId){
+  const rawEl = document.getElementById('raw-' + noteId);
+  const grownEl = document.getElementById('grown-' + noteId);
+  localStorage.setItem(draftKey(noteId), JSON.stringify({ raw: rawEl.value, grown: grownEl.value, ts: Date.now() }));
+  setSaveState(noteId, '端末に下書きを保存…');
+  clearTimeout(saveTimers[noteId]);
+  saveTimers[noteId] = setTimeout(()=>saveNote(noteId), 900);
+}
+function noteCard(n){
+  const local = localStorage.getItem(draftKey(n.id));
+  let raw = n.raw_text, grown = n.grown_text, draftNote = '';
+  if(local){
+    try{ const d = JSON.parse(local);
+      if(new Date(d.ts) > new Date(n.updated_at)){ raw = d.raw; grown = d.grown; draftNote = '（端末の下書きを復元しました）'; }
+    }catch(e){}
+  }
+  return `
+  <div class="card" id="note-${n.id}">
+    <div class="row"><div class="grow muted">${fmtDate(n.created_at)} の感想</div>
+    <span class="savestate" id="ss-${n.id}">${draftNote}</span></div>
+    <label class="flabel">① 素の感想</label>
+    <textarea id="raw-${n.id}" data-note-input="${n.id}" placeholder="見て、ただ思ったこと">${esc(raw)}</textarea>
+    <label class="flabel">② 育った感想</label>
+    <textarea id="grown-${n.id}" data-note-input="${n.id}" placeholder="意図を考えたり、自分の撮影・暮らし・仕事に寄せたり">${esc(grown)}</textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="small" data-make-post-note="${n.id}">②をポスト候補に</button>
+      <button class="small ghost" data-del-note="${n.id}">この感想を消す</button>
+    </div>
+  </div>`;
+}
+function pairCard(p){
+  const v = S.vmap[p.video_id];
+  return `
+  <div class="pairbox">
+    <div class="q">林：${esc(p.quote)} ${p.quote_ts!=null? '<span class="muted">'+fmtClock(p.quote_ts)+'</span>':''}</div>
+    ${p.my_line? '<div class="mine">俺：'+esc(p.my_line)+'</div>':''}
+    <div class="row" style="margin-top:5px">
+      ${p.tag? '<span class="badge">'+esc(p.tag)+'</span>':''}
+      <span class="muted">${v? esc(v.title):''}</span>
+      <span class="grow"></span>
+      <button class="small" data-make-post-pair="${p.id}">候補に</button>
+      <button class="small ghost" data-del-pair="${p.id}">消す</button>
+    </div>
+  </div>`;
+}
+async function loadTranscript(vid){
+  if(S.transcripts[vid] !== undefined) return S.transcripts[vid];
+  const { data } = await sb.from('vn_transcripts').select('*').eq('video_id', vid).maybeSingle();
+  S.transcripts[vid] = data || null;
+  return S.transcripts[vid];
+}
+async function loadMedia(vid){
+  const { data } = await sb.from('vn_media').select('*').eq('video_id', vid).order('created_at',{ascending:true});
+  const rows = data || [];
+  for(const m of rows){
+    if(m.media_type==='image' && m.storage_path){
+      const { data: signed } = await sb.storage.from('vn-media').createSignedUrl(m.storage_path, 3600);
+      m._url = signed ? signed.signedUrl : '';
+    }
+  }
+  return rows;
+}
+function ytIdFromUrl(u){
+  if(!u) return '';
+  u = u.trim();
+  const marks = ['watch?v=', 'youtu.be/', '/shorts/', '/live/', '/embed/'];
+  for(const mk of marks){
+    const i = u.indexOf(mk);
+    if(i >= 0){ let rest = u.slice(i + mk.length); const cut = rest.search(/[&#/?]/); if(cut>=0) rest = rest.slice(0,cut); return rest; }
+  }
+  return u.length===11 ? u : '';
+}
+function parseManualTranscript(text){
+  const segs = [];
+  text.split('\n').forEach(line=>{
+    line = line.trim(); if(!line) return;
+    let s = null, t = line;
+    const sp = line.indexOf(' ');
+    if(sp > 0){
+      const head = line.slice(0, sp);
+      const parts = head.split(':');
+      if(parts.length>=2 && parts.every(x=>x!=='' && !isNaN(Number(x)))){
+        s = parts.reduce((a,x)=>a*60+Number(x),0); t = line.slice(sp+1);
+      }
+    }
+    segs.push({ s, t });
+  });
+  return segs;
+}
+
+async function openVideo(vid){
+  S.curVideo = vid;
+  showView('note');
+  const el = document.getElementById('view-note');
+  const v = S.vmap[vid];
+  if(!v){ el.innerHTML = '<div class="card">動画が見つかりません。</div>'; return; }
+  el.innerHTML = '<div class="card">読み込んでいます…</div>';
+  const [tr, media] = await Promise.all([loadTranscript(vid), loadMedia(vid)]);
+  const ns = notesOf(vid), ps = pairsOf(vid);
+  const segs = tr ? (tr.segments || []) : null;
+  el.innerHTML = `
+    <button class="small ghost" id="backToList">← 一覧へ</button>
+    <div class="card">
+      <div style="font-size:17px; line-height:1.5">${esc(v.title)}</div>
+      <div class="muted" style="margin:3px 0 10px">${esc(v.channel_name)} ・ <span class="badge ${v.kind}">${KIND_LABEL[v.kind]}</span> ${fmtDur(v.duration_sec)}</div>
+      <div style="position:relative; padding-top:56.25%; border-radius:10px; overflow:hidden; background:#000">
+        <iframe src="https://www.youtube-nocookie.com/embed/${v.video_id}" style="position:absolute; inset:0; width:100%; height:100%; border:0" allowfullscreen title="video"></iframe>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="watchBtn" class="${isWatched(vid)?'gold':'primary'} grow">${isWatched(vid)?'見た（取り消す）':'見たにする'}</button>
+        <a href="https://www.youtube.com/watch?v=${v.video_id}" target="_blank" rel="noopener"><button>YouTubeで開く</button></a>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="small" id="progPostBtn">進捗をポスト候補に</button>
+        <span class="muted">いま ${watchedCount()}／${S.videos.length} 本</span>
+      </div>
+    </div>
+
+    <div id="noteList">${ns.map(noteCard).join('')}</div>
+    <button class="primary" id="newNoteBtn" style="width:100%; margin-bottom:12px">＋ 感想を書く</button>
+
+    <div class="card">
+      <h3 class="serif" style="margin:2px 0 6px">対決（一言ペア）</h3>
+      <p class="muted" style="margin:0 0 8px">引っかかった林さんの一言と、自分のひと言。0個でも大丈夫です。</p>
+      <div id="pairList">${ps.map(pairCard).join('') || '<p class="muted">まだありません。</p>'}</div>
+      <label class="flabel">林の一言</label>
+      <textarea id="pairQuote" placeholder="文字起こしからタップで拾えます。手で書いてもOK" style="min-height:44px"></textarea>
+      <div class="row">
+        <div style="width:110px"><label class="flabel">時刻（秒・任意）</label><input type="text" id="pairTs" inputmode="numeric" placeholder="例 512"></div>
+        <div class="grow"><label class="flabel">タグ（任意）</label>
+          <div class="row" id="pairTags">${TAGS.map(t=>'<span class="chip" data-ptag="'+t+'">'+t+'</span>').join('')}</div>
+        </div>
+      </div>
+      <label class="flabel">俺の一言</label>
+      <textarea id="pairMine" placeholder="共感・反論・疑問、思ったまま" style="min-height:44px"></textarea>
+      <button class="primary" id="addPairBtn" style="width:100%; margin-top:9px">ペアを残す</button>
+    </div>
+
+    <div class="card">
+      <h3 class="serif" style="margin:2px 0 6px">資料（文字起こし）</h3>
+      <details class="shiryo" id="shiryoBox">
+        <summary>文字起こしを開く（感想を書く前は開かなくて大丈夫です）</summary>
+        <div id="transcriptBody" style="margin-top:8px">
+          ${segs ? (segs.length? '' : '<p class="muted">文字起こしは空でした。</p>') : '<p class="muted">まだ用意できていません。裏で取得を試みます。</p>'}
+        </div>
+        ${segs && segs.length ? '<p class="muted">行をタップすると、その一言が対決欄に入ります。</p>' : ''}
+        <label class="flabel">手で貼る（YouTubeの「文字起こしを表示」から）</label>
+        <textarea id="manualTr" placeholder="ここに貼って保存すると資料になります" style="min-height:56px"></textarea>
+        <button class="small" id="saveManualTr" style="margin-top:6px">貼った文字起こしを保存</button>
+      </details>
+    </div>
+
+    <div class="card">
+      <h3 class="serif" style="margin:2px 0 6px">メディア箱</h3>
+      <div class="media-grid" id="mediaGrid">
+        ${media.map(m=> m.media_type==='image'
+          ? '<div><img src="'+esc(m._url||'')+'" alt=""><br><button class="small ghost" data-del-media="'+m.id+'">消す</button></div>'
+          : '<div><iframe src="https://www.youtube-nocookie.com/embed/'+esc(m.youtube_id||'')+'" allowfullscreen></iframe><br><button class="small ghost" data-del-media="'+m.id+'">消す</button></div>').join('')}
+      </div>
+      <label class="flabel">写真を入れる</label>
+      <input type="file" id="mediaFile" accept="image/*">
+      <label class="flabel">自分の動画（YouTube限定公開のURL）</label>
+      <div class="row"><input type="url" id="mediaYt" placeholder="https://youtu.be/…"><button id="addYtBtn">入れる</button></div>
+    </div>
+
+    <div class="card">
+      <h3 class="serif" style="margin:2px 0 6px">用語を拾う</h3>
+      <div class="row"><input type="text" id="termInput" placeholder="覚えた言葉"><button id="addTermBtn">用語集へ</button></div>
+    </div>`;
+
+  if(segs && segs.length){
+    const body = document.getElementById('transcriptBody');
+    body.innerHTML = segs.map((sg,i)=>'<div class="seg" data-seg="'+i+'"><span class="st">'+(sg.s!=null?fmtClock(Math.round(sg.s)):'')+'</span>'+esc(sg.t)+'</div>').join('');
+    body.querySelectorAll('[data-seg]').forEach(d=> d.addEventListener('click', ()=>{
+      const sg = segs[Number(d.dataset.seg)];
+      document.getElementById('pairQuote').value = sg.t;
+      document.getElementById('pairTs').value = sg.s!=null ? Math.round(sg.s) : '';
+      document.getElementById('shiryoBox').open = false;
+      document.getElementById('pairMine').focus();
+      toast('一言を拾いました');
+    }));
+  }
+  bindNoteView(vid);
+}
+
+function bindNoteView(vid){
+  const v = S.vmap[vid];
+  document.getElementById('backToList').addEventListener('click', ()=>showView('list'));
+  document.getElementById('watchBtn').addEventListener('click', async ()=>{
+    const now = !isWatched(vid);
+    const { error } = await sb.from('vn_progress').upsert({
+      video_id: vid, watched: now, watched_at: now? new Date().toISOString() : null, updated_at: new Date().toISOString()
+    });
+    if(error){ toast('保存できませんでした'); return; }
+    S.progress[vid] = { video_id: vid, watched: now, watched_at: now? new Date().toISOString(): null };
+    openVideo(vid);
+  });
+  document.getElementById('progPostBtn').addEventListener('click', async ()=>{
+    const body = '#インディーズ林インターン ' + watchedCount() + '/' + S.videos.length + '本目\n' + v.title + '\nhttps://www.youtube.com/watch?v=' + vid;
+    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, status: 'candidate' }).select().single();
+    if(!error && data){ S.posts.unshift(data); toast('ポスト候補に入れました'); }
+  });
+  document.querySelectorAll('[data-note-input]').forEach(t=> t.addEventListener('input', ()=>onNoteInput(t.dataset.noteInput)));
+  document.querySelectorAll('[data-del-note]').forEach(b=> b.addEventListener('click', async ()=>{
+    if(!confirm('この感想を消しますか？')) return;
+    const id = b.dataset.delNote;
+    await sb.from('vn_notes').delete().eq('id', id);
+    S.notes = S.notes.filter(n=>n.id!==id);
+    localStorage.removeItem(draftKey(id));
+    openVideo(vid);
+  }));
+  document.querySelectorAll('[data-make-post-note]').forEach(b=> b.addEventListener('click', async ()=>{
+    const n = S.notes.find(x=>x.id===b.dataset.makePostNote);
+    if(!n) return;
+    const text = (document.getElementById('grown-'+n.id)?.value || n.grown_text || '').trim();
+    if(!text){ toast('②が空です'); return; }
+    const body = text + '\nhttps://www.youtube.com/watch?v=' + vid + '\n#インディーズ林インターン';
+    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, status: 'candidate' }).select().single();
+    if(!error && data){ S.posts.unshift(data); toast('ポスト候補に入れました'); }
+  }));
+  document.getElementById('newNoteBtn').addEventListener('click', async ()=>{
+    const { data, error } = await sb.from('vn_notes').insert({ video_id: vid }).select().single();
+    if(error){ toast('作れませんでした'); return; }
+    S.notes.push(data);
+    openVideo(vid).then(()=>{ const t=document.getElementById('raw-'+data.id); if(t) t.focus(); });
+  });
+  let pairTag = null;
+  document.querySelectorAll('[data-ptag]').forEach(c=> c.addEventListener('click', ()=>{
+    pairTag = pairTag===c.dataset.ptag ? null : c.dataset.ptag;
+    document.querySelectorAll('[data-ptag]').forEach(x=> x.classList.toggle('tag-on', x.dataset.ptag===pairTag));
+  }));
+  document.getElementById('addPairBtn').addEventListener('click', async ()=>{
+    const quote = document.getElementById('pairQuote').value.trim();
+    const mine = document.getElementById('pairMine').value.trim();
+    const tsRaw = document.getElementById('pairTs').value.trim();
+    if(!quote){ toast('林の一言を入れてください'); return; }
+    const { data, error } = await sb.from('vn_pairs').insert({
+      video_id: vid, quote, quote_ts: tsRaw===''? null : Number(tsRaw), my_line: mine, tag: pairTag
+    }).select().single();
+    if(error){ toast('保存できませんでした'); return; }
+    S.pairs.push(data); openVideo(vid); toast('ペアを残しました');
+  });
+  document.querySelectorAll('[data-del-pair]').forEach(b=> b.addEventListener('click', async ()=>{
+    if(!confirm('このペアを消しますか？')) return;
+    await sb.from('vn_pairs').delete().eq('id', b.dataset.delPair);
+    S.pairs = S.pairs.filter(p=>p.id!==b.dataset.delPair);
+    openVideo(vid);
+  }));
+  document.querySelectorAll('[data-make-post-pair]').forEach(b=> b.addEventListener('click', async ()=>{
+    const p = S.pairs.find(x=>x.id===b.dataset.makePostPair);
+    if(!p) return;
+    const body = '林「' + p.quote + '」' + (p.quote_ts!=null? '（'+fmtClock(p.quote_ts)+'）':'') + '\n俺：' + p.my_line + '\nhttps://www.youtube.com/watch?v=' + vid + '\n#インディーズ林インターン';
+    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, status: 'candidate' }).select().single();
+    if(!error && data){ S.posts.unshift(data); toast('ポスト候補に入れました'); }
+  }));
+  document.getElementById('saveManualTr').addEventListener('click', async ()=>{
+    const text = document.getElementById('manualTr').value.trim();
+    if(!text) return;
+    const segs = parseManualTranscript(text);
+    const { error } = await sb.from('vn_transcripts').upsert({ video_id: vid, segments: segs, source: 'manual', fetched_at: new Date().toISOString() });
+    if(error){ toast('保存できませんでした'); return; }
+    S.transcripts[vid] = { video_id: vid, segments: segs, source: 'manual' };
+    openVideo(vid); toast('資料にしました');
+  });
+  document.getElementById('mediaFile').addEventListener('change', async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    const path = vid + '/' + Date.now() + '-' + file.name;
+    const { error: upErr } = await sb.storage.from('vn-media').upload(path, file);
+    if(upErr){ toast('アップロードできませんでした'); return; }
+    const { error } = await sb.from('vn_media').insert({ video_id: vid, media_type: 'image', storage_path: path });
+    if(error){ toast('記録できませんでした'); return; }
+    openVideo(vid); toast('メディア箱に入れました');
+  });
+  document.getElementById('addYtBtn').addEventListener('click', async ()=>{
+    const id = ytIdFromUrl(document.getElementById('mediaYt').value);
+    if(!id){ toast('URLから動画IDを取れませんでした'); return; }
+    const { error } = await sb.from('vn_media').insert({ video_id: vid, media_type: 'youtube', youtube_id: id });
+    if(error){ toast('記録できませんでした'); return; }
+    openVideo(vid); toast('メディア箱に入れました');
+  });
+  document.querySelectorAll('[data-del-media]').forEach(b=> b.addEventListener('click', async ()=>{
+    if(!confirm('消しますか？')) return;
+    await sb.from('vn_media').delete().eq('id', b.dataset.delMedia);
+    openVideo(vid);
+  }));
+  document.getElementById('addTermBtn').addEventListener('click', async ()=>{
+    const term = document.getElementById('termInput').value.trim();
+    if(!term) return;
+    const { data, error } = await sb.from('vn_terms').insert({ term, video_id: vid }).select().single();
+    if(!error && data){ S.terms.push(data); toast('用語集に入れました'); document.getElementById('termInput').value=''; }
+  });
+}
+</script>
+<script>
+/* ---------- posts ---------- */
+function renderPosts(){
+  const el = document.getElementById('view-posts');
+  const tab = S.postTab;
+  const rows = S.posts.filter(p=>p.status===tab);
+  const tabBtn = (val,label)=>'<span class="chip '+(tab===val?'on':'')+'" data-ptab="'+val+'">'+label+'（'+S.posts.filter(p=>p.status===val).length+'）</span>';
+  el.innerHTML = `
+    <div class="card">
+      <div class="row">${tabBtn('candidate','候補')} ${tabBtn('draft','下書き')} ${tabBtn('posted','投稿済み')}</div>
+      <p class="muted" style="margin:8px 0 0">下書きは君の言葉だけ。投稿は自分で選んで行います。</p>
+      <div style="margin-top:9px"><button class="primary" id="newPostBtn">＋ 自由に書く</button></div>
+    </div>
+    ${rows.map(p=>`
+    <div class="card">
+      <textarea id="post-${p.id}" data-post-input="${p.id}" style="min-height:88px">${esc(p.body)}</textarea>
+      <div class="row" style="margin-top:7px">
+        <span class="savestate" id="pss-${p.id}"></span><span class="grow"></span>
+        <button class="small" data-copy-post="${p.id}">コピー</button>
+        <button class="small" data-x-post="${p.id}">Xで開く</button>
+        ${p.status!=='posted' ? '<button class="small gold" data-done-post="'+p.id+'">投稿した</button>' : '<span class="muted">'+(p.post_url? '<a href="'+esc(p.post_url)+'" target="_blank" rel="noopener">投稿を見る</a>' : '投稿済み')+'</span>'}
+        <button class="small ghost" data-del-post="${p.id}">消す</button>
+      </div>
+      ${p.video_id && S.vmap[p.video_id] ? '<div class="muted" style="margin-top:4px">出典：'+esc(S.vmap[p.video_id].title)+'</div>' : ''}
+    </div>`).join('') || '<div class="card"><p class="muted">まだありません。動画ノートから候補が貯まります。</p></div>'}`;
+  el.querySelectorAll('[data-ptab]').forEach(c=> c.addEventListener('click', ()=>{ S.postTab = c.dataset.ptab; renderPosts(); }));
+  document.getElementById('newPostBtn').addEventListener('click', async ()=>{
+    const { data, error } = await sb.from('vn_posts').insert({ body: '', status: S.postTab==='posted' ? 'draft' : S.postTab }).select().single();
+    if(!error && data){ S.posts.unshift(data); if(S.postTab==='posted') S.postTab='draft'; renderPosts(); }
+  });
+  el.querySelectorAll('[data-post-input]').forEach(t=> t.addEventListener('input', ()=>{
+    const id = t.dataset.postInput;
+    const st = document.getElementById('pss-'+id); if(st) st.textContent = '端末に下書き…';
+    localStorage.setItem('vn-postdraft-'+id, t.value);
+    clearTimeout(saveTimers['post-'+id]);
+    saveTimers['post-'+id] = setTimeout(async ()=>{
+      const { error } = await sb.from('vn_posts').update({ body: t.value, updated_at: new Date().toISOString() }).eq('id', id);
+      const p = S.posts.find(x=>x.id===id); if(p) p.body = t.value;
+      if(st) st.textContent = error ? '保存できていません（端末には残っています）' : '保存済み';
+      if(!error) localStorage.removeItem('vn-postdraft-'+id);
+    }, 900);
+  }));
+  el.querySelectorAll('[data-copy-post]').forEach(b=> b.addEventListener('click', async ()=>{
+    const t = document.getElementById('post-'+b.dataset.copyPost);
+    try{ await navigator.clipboard.writeText(t.value); toast('コピーしました'); }
+    catch(e){ t.select(); document.execCommand('copy'); toast('コピーしました'); }
+  }));
+  el.querySelectorAll('[data-x-post]').forEach(b=> b.addEventListener('click', ()=>{
+    const t = document.getElementById('post-'+b.dataset.xPost);
+    window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(t.value), '_blank');
+  }));
+  el.querySelectorAll('[data-done-post]').forEach(b=> b.addEventListener('click', async ()=>{
+    const url = prompt('投稿のURL（空でもOK）', '');
+    const { error } = await sb.from('vn_posts').update({ status: 'posted', post_url: url || null, updated_at: new Date().toISOString() }).eq('id', b.dataset.donePost);
+    if(!error){ const p = S.posts.find(x=>x.id===b.dataset.donePost); if(p){ p.status='posted'; p.post_url = url||null; } renderPosts(); toast('投稿済みにしました'); }
+  }));
+  el.querySelectorAll('[data-del-post]').forEach(b=> b.addEventListener('click', async ()=>{
+    if(!confirm('この下書きを消しますか？')) return;
+    await sb.from('vn_posts').delete().eq('id', b.dataset.delPost);
+    S.posts = S.posts.filter(p=>p.id!==b.dataset.delPost);
+    renderPosts();
+  }));
+}
+
+/* ---------- growth ---------- */
+function renderGrowth(){
+  const el = document.getElementById('view-growth');
+  const holds = S.pairs.filter(p=>p.tag==='保留');
+  const timeline = [...S.notes].sort((a,b)=> new Date(b.created_at)-new Date(a.created_at));
+  el.innerHTML = `
+    <div class="card">
+      <h3 class="serif" style="margin:2px 0 8px">持ち越し箱（保留）</h3>
+      ${holds.map(p=>'<div data-open-video="'+p.video_id+'" style="cursor:pointer">'+pairCard(p)+'</div>').join('') || '<p class="muted">保留はまだありません。後の動画で答えが見えたら、ここから戻れます。</p>'}
+    </div>
+    <div class="card">
+      <h3 class="serif" style="margin:2px 0 8px">用語集</h3>
+      ${S.terms.map(t=>'<div class="row" style="padding:4px 0; border-bottom:1px solid var(--line)"><div class="grow"><b>'+esc(t.term)+'</b> <span class="muted">'+esc(t.memo||'')+'</span></div><button class="small ghost" data-del-term="'+t.id+'">消す</button></div>').join('') || '<p class="muted">まだありません。動画ノートから拾えます。</p>'}
+    </div>
+    <div class="card">
+      <h3 class="serif" style="margin:2px 0 8px">感想の時系列</h3>
+      ${timeline.map(n=>{ const v = S.vmap[n.video_id]; return `
+        <div style="padding:9px 0; border-bottom:1px solid var(--line)">
+          <div class="muted">${fmtDate(n.created_at)} ・ ${v? esc(v.title):''}</div>
+          ${n.raw_text? '<div style="margin-top:3px">① '+esc(n.raw_text)+'</div>':''}
+          ${n.grown_text? '<div style="margin-top:3px">② '+esc(n.grown_text)+'</div>':''}
+          <button class="small" data-open-video="${n.video_id}">この動画を開く</button>
+        </div>`; }).join('') || '<p class="muted">感想はまだありません。</p>'}
+    </div>`;
+  el.querySelectorAll('[data-open-video]').forEach(c=> c.addEventListener('click', (e)=>{
+    if(e.target.closest('button') && e.target.dataset.makePostPair) return;
+    openVideo(c.dataset.openVideo);
+  }));
+  el.querySelectorAll('[data-del-term]').forEach(b=> b.addEventListener('click', async ()=>{
+    await sb.from('vn_terms').delete().eq('id', b.dataset.delTerm);
+    S.terms = S.terms.filter(t=>t.id!==b.dataset.delTerm);
+    renderGrowth();
+  }));
+  el.querySelectorAll('[data-del-pair]').forEach(b=> b.addEventListener('click', async (e)=>{
+    e.stopPropagation();
+    if(!confirm('このペアを消しますか？')) return;
+    await sb.from('vn_pairs').delete().eq('id', b.dataset.delPair);
+    S.pairs = S.pairs.filter(p=>p.id!==b.dataset.delPair);
+    renderGrowth();
+  }));
+  el.querySelectorAll('[data-make-post-pair]').forEach(b=> b.addEventListener('click', async (e)=>{
+    e.stopPropagation();
+    const p = S.pairs.find(x=>x.id===b.dataset.makePostPair);
+    if(!p) return;
+    const body = '林「' + p.quote + '」' + (p.quote_ts!=null? '（'+fmtClock(p.quote_ts)+'）':'') + '\n俺：' + p.my_line + '\nhttps://www.youtube.com/watch?v=' + p.video_id + '\n#インディーズ林インターン';
+    const { data, error } = await sb.from('vn_posts').insert({ video_id: p.video_id, body, status: 'candidate' }).select().single();
+    if(!error && data){ S.posts.unshift(data); toast('ポスト候補に入れました'); }
+  }));
+}
+
+/* ---------- export ---------- */
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const payload = {
+    exported_at: new Date().toISOString(),
+    progress: S.progress, notes: S.notes, pairs: S.pairs, posts: S.posts, terms: S.terms,
+    videos: S.videos.map(v=>({ video_id: v.video_id, channel_name: v.channel_name, kind: v.kind, title: v.title })),
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'shichou-notes-export.json';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+});
+
+/* ---------- init ---------- */
+(async ()=>{
+  const { data } = await sb.auth.getSession();
+  if(data && data.session){ S.user = data.session.user; await boot(); }
+  else { document.getElementById('loginView').classList.remove('hidden'); }
+})();
+</script>
+</body>
+</html>
