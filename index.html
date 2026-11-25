@@ -169,6 +169,7 @@ const POST_KINDS = ['進捗','対決','回収','比較','適用','用語','疑�
 function postKindOf(p){ if(p.kind === '気づき') return '気づき'; return POST_KINDS.indexOf(p.kind) >= 0 ? p.kind : '対決'; }
 
 function esc(s){ return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function linkify(s){ return esc(s).replace(/https:\/\/[^\s]+/g, u=>'<a href="'+u+'" target="_blank" rel="noopener">'+u+'</a>'); }
 function fmtDur(sec){ if(sec==null) return '—'; sec=Math.round(sec); const h=Math.floor(sec/3600), m=Math.floor(sec%3600/60), s=sec%60;
   return h>0 ? h+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0') : m+':'+String(s).padStart(2,'0'); }
 function fmtClock(sec){ if(sec==null) return ''; return fmtDur(sec); }
@@ -736,7 +737,7 @@ function renderPosts(){
       + (p.status!=='posted' ? '<button class="small gold" data-done-post="'+p.id+'">投稿した</button>' : '<span class="muted">'+(p.post_url ? '<a href="'+esc(p.post_url)+'" target="_blank" rel="noopener">投稿を見る</a>' : '投稿済み')+'</span>')
       + '<button class="small ghost" data-del-post="'+p.id+'">消す</button>'
       + '</div>'
-      + (cat.detail ? '<div class="muted" style="margin-top:5px">出典：'+esc(cat.detail)+'</div>' : '')
+      + (cat.detail ? '<div class="muted" style="margin-top:5px">出典：'+linkify(cat.detail)+'</div>' : '')
       + '</div>';
   };
   const reunion = S.reunionId ? S.posts.find(p=>p.id===S.reunionId) : null;
