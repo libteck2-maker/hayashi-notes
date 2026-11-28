@@ -917,7 +917,7 @@ const WS_GENRES = [['all','すべて','#5ce1a6'],['rel','関係','#ff7ab6'],['wo
 const WS_HOLD_MS = 750;
 const WS_REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 const WS_SPARK_COLORS = ['#ffd23f','#ff5a3c','#5ce1a6','#43d9ff','#ff7ab6','#fff6dc'];
-const WS = { dx:0, drag:false, hold:0, raf:0, startX:0, press:0, held:false, deciding:false, deal:0, ret:false, banner:false, toastMsg:'', toastTimer:0, bannerTimer:0, insight:false };
+const WS = { dx:0, drag:false, hold:0, raf:0, startX:0, press:0, held:false, deciding:false, deal:0, ret:false, banner:false, toastMsg:'', toastTimer:0, bannerTimer:0, insight:false, read:false, downTime:0 };
 function wsGenreOf(p){ return p.genre || 'all'; }
 function wsGenreMeta(g){ return WS_GENRES.find(x=>x[0]===g) || WS_GENRES[0]; }
 function wsCandidates(){ return S.posts.filter(p=>p.status==='candidate' && !p.deck_off); }
@@ -974,6 +974,7 @@ function wsBindCommon(el){
     if(act === 'insight-open'){ WS.insight = true; renderDeck(); const t = document.getElementById('wsInsightBody'); if(t){ t.value = localStorage.getItem('vn-insight-draft') || ''; t.focus(); } }
     if(act === 'insight-close'){ WS.insight = false; renderDeck(); }
     if(act === 'insight-save') wsInsightSave();
+    if(act === 'read-close'){ WS.read = false; renderDeck(); }
   }));
 }
 function wsCardHTML(){
@@ -998,7 +999,7 @@ function wsCardHTML(){
             <span style="background:${cm[2]};color:#0b1510;border:3px solid #0b1510;padding:3px 8px;font-size:13px;flex:none">${cm[1]}</span>
             <span style="font-size:13px;color:#4b4f45">出典：${esc(cat.label)}</span>
           </div>
-          <div style="margin-top:14px;font-size:12px;letter-spacing:.3em;color:#4b4f45">― 種 ―</div>
+          <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12px;letter-spacing:.3em;color:#4b4f45">― 種 ―</span><span style="font-size:11px;color:#8a7f5c">タップで全文</span></div>
           <div style="margin-top:6px;overflow-y:auto;flex:1;min-height:0;-webkit-overflow-scrolling:touch;touch-action:pan-y">
             <div style="font-size:21px;line-height:1.55;color:#0b1510;white-space:pre-wrap;word-break:break-word">${esc(sp.seed)}</div>
             ${sp.body ? '<div style="margin-top:10px;font-family:\'Zen Kaku Gothic New\',sans-serif;font-size:14px;line-height:1.75;color:#2b2f28;white-space:pre-wrap;word-break:break-word">'+esc(sp.body)+'</div>' : ''}
@@ -1006,7 +1007,7 @@ function wsCardHTML(){
           <div style="flex:none;min-height:12px"></div>
           <div style="position:relative;background:#0b1510;border:3px solid #fff6dc;outline:3px solid #0b1510;padding:12px 14px 16px;color:#fff6dc">
             <div style="font-size:12px;color:#5ce1a6;margin-bottom:6px">AI「叩き台やで。このままは出さんといてな」</div>
-            <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:13px;line-height:1.75;max-height:118px;overflow-y:auto;touch-action:pan-y">${cur.ai_draft ? esc(cur.ai_draft) : 'まだ書いてへん。種だけで勝負できる札。'}</div>
+            <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:13px;line-height:1.75;max-height:46px;overflow-y:auto;touch-action:pan-y">${cur.ai_draft ? esc(cur.ai_draft) : 'まだ書いてへん。種だけで勝負できる札。'}</div>
             <span style="position:absolute;right:10px;bottom:4px;font-size:12px;animation:wsBlink 1s steps(1) infinite">▼</span>
           </div>
         </div>
@@ -1044,18 +1045,18 @@ function wsCardHTML(){
     <div style="display:flex;justify-content:space-between;padding:18px 22px 0;font-size:13px;color:#5ce1a6"><span>◀ はらって パス</span><span style="color:#ffd23f">ながおしで これだ！</span><span>もどす ▶</span></div>
     <div style="display:flex;gap:12px;padding:12px 24px 0">
       <button class="pxbtn" data-ws="pass" style="flex:1;height:64px;padding:0 6px;white-space:nowrap;background:#ff5a3c;color:#fff6dc;border:4px solid #0b1510;box-shadow:5px 5px 0 #0b1510;font-size:22px;cursor:pointer">◀ パス</button>
-      <button class="pxbtn" data-ws="undo" ${canUndo ? '' : 'disabled'} style="width:64px;flex:none;height:64px;background:${canUndo ? '#43d9ff' : '#2a4536'};color:${canUndo ? '#0b1510' : '#6f8577'};border:4px solid #0b1510;box-shadow:5px 5px 0 #0b1510;font-size:26px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;gap:2px">↶<span style="font-size:10px">もどる</span></button>
+      <button class="pxbtn" data-ws="off" aria-label="いらない（山から外す）" style="width:64px;flex:none;height:64px;background:#37473d;color:#fff6dc;border:4px solid #0b1510;box-shadow:5px 5px 0 #0b1510;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;gap:3px"><svg viewBox="0 0 24 24" width="24" height="24" shape-rendering="crispEdges" fill="#fff6dc" aria-hidden="true"><rect x="9" y="2" width="6" height="2"/><rect x="3" y="4" width="18" height="2"/><rect x="5" y="6" width="14" height="2"/><rect x="6" y="8" width="12" height="13"/><rect x="9" y="11" width="2" height="7" fill="#37473d"/><rect x="13" y="11" width="2" height="7" fill="#37473d"/></svg><span style="font-size:10px">いらない</span></button>
       <button class="pxbtn" data-ws="decide" style="flex:1.6;height:64px;padding:0 6px;white-space:nowrap;background:#ffd23f;color:#0b1510;border:4px solid #0b1510;box-shadow:5px 5px 0 #0b1510;font-size:24px;cursor:pointer">これだ！ ▶</button>
     </div>
     <div style="display:flex;justify-content:center;gap:26px;padding:6px 0 14px">
       <button data-ws="blank" style="height:44px;border:none;background:transparent;color:#5ce1a6;font-size:15px;cursor:pointer">＋ 白紙から</button>
       <button data-ws="insight-open" style="height:44px;border:none;background:transparent;color:#5ce1a6;font-size:15px;cursor:pointer">＋ 気づき</button>
-      <button data-ws="off" style="height:44px;border:none;background:transparent;color:#ff8a75;font-size:15px;cursor:pointer">いらない</button>
     </div>
   </div>
   ${WS.deciding ? '<div style="position:absolute;inset:0;pointer-events:none"><div style="position:absolute;inset:0;background:#ffd23f;animation:wsFlash .5s ease-out forwards"></div>'+sparks+'<div style="position:absolute;left:0;right:0;top:38%;display:flex;justify-content:center"><div style="font-size:64px;color:#ffd23f;text-shadow:4px 0 #0b1510,-4px 0 #0b1510,0 4px #0b1510,0 -4px #0b1510,8px 8px 0 #ff5a3c;animation:wsPop .45s cubic-bezier(.2,.9,.3,1.4) forwards">これだ！</div></div></div>' : ''}
   ${WS.banner ? '<div style="position:absolute;left:0;right:0;top:34%;display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none"><div style="font-size:56px;color:#5ce1a6;text-shadow:4px 0 #0b1510,-4px 0 #0b1510,0 4px #0b1510,0 -4px #0b1510,8px 8px 0 #ffd23f;animation:wsPop .45s cubic-bezier(.2,.9,.3,1.4) forwards">GET!</div><div style="background:#0b1510;border:3px solid #ffd23f;color:#ffd23f;padding:8px 14px;font-size:16px">ポスト候補に立てた　まちがいなら ↶</div></div>' : ''}
   ${WS.toastMsg ? '<div style="position:absolute;left:24px;right:24px;bottom:150px;background:#0b1510;border:3px solid #43d9ff;color:#43d9ff;padding:10px 14px;font-size:15px;text-align:center">↶ '+esc(WS.toastMsg)+'</div>' : ''}
+  ${WS.read && cur ? '<div style="position:absolute;inset:0;background:rgba(6,16,11,.9);display:flex;align-items:center;justify-content:center;padding:20px;z-index:5"><div style="background:#fff6dc;border:4px solid #0b1510;box-shadow:8px 8px 0 #0b1510;padding:18px;width:100%;max-width:520px;max-height:100%;display:flex;flex-direction:column;color:#0b1510;box-sizing:border-box"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="background:'+wsGenreMeta(wsGenreOf(cur))[2]+';color:#0b1510;border:3px solid #0b1510;padding:3px 8px;font-size:13px">'+wsGenreMeta(wsGenreOf(cur))[1]+'</span><span style="font-size:12px;color:#4b4f45">出典：'+esc(postSourceCat(cur).label)+'</span></div><div style="margin-top:12px;overflow-y:auto;min-height:0;font-size:17px;line-height:1.75;white-space:pre-wrap;word-break:break-word">'+esc(cur.body || '')+'</div>'+(cur.ai_draft ? '<div style="margin-top:12px;background:#0b1510;color:#fff6dc;padding:10px 12px;font-family:\'Zen Kaku Gothic New\',sans-serif;font-size:13px;line-height:1.75;max-height:30vh;overflow-y:auto"><span style="color:#5ce1a6;font-size:11px">AI 叩き台</span><br>'+esc(cur.ai_draft)+'</div>' : '')+'<button data-ws="read-close" class="pxbtn" style="margin-top:14px;height:52px;background:#14342b;color:#fff6dc;border:4px solid #0b1510;box-shadow:4px 4px 0 #0b1510;font-size:16px;cursor:pointer;flex:none">とじる</button></div></div>' : ''}
   ${WS.insight ? '<div style="position:absolute;inset:0;background:rgba(6,16,11,.82);display:flex;align-items:center;justify-content:center;padding:22px"><div style="background:#fff6dc;border:4px solid #0b1510;box-shadow:8px 8px 0 #0b1510;padding:18px;width:100%;max-width:480px;color:#0b1510"><div style="font-size:17px;margin-bottom:8px">気づきを書く</div><textarea id="wsInsightBody" placeholder="気づいたことを、そのままの言葉で" style="width:100%;min-height:110px;border:3px solid #0b1510;border-radius:0;background:#fffdf4;font-family:\'Zen Kaku Gothic New\',sans-serif;font-size:16px;padding:10px;box-sizing:border-box"></textarea><div style="display:flex;gap:10px;margin-top:12px"><button data-ws="insight-close" style="flex:1;height:52px;background:#fff6dc;color:#0b1510;border:4px solid #0b1510;font-size:16px;cursor:pointer">やめる</button><button class="pxbtn" data-ws="insight-save" style="flex:1.4;height:52px;background:#14342b;color:#fff6dc;border:4px solid #0b1510;box-shadow:4px 4px 0 #0b1510;font-size:16px;cursor:pointer">入れる</button></div></div></div>' : ''}
   </div>`;
 }
@@ -1131,7 +1132,7 @@ function wsStopHold(keep){
 }
 function wsDown(e){
   if(WS.deciding) return;
-  WS.drag = true; WS.held = false; WS.startX = e.clientX; WS.press = e.pressure || 0;
+  WS.drag = true; WS.held = false; WS.startX = e.clientX; WS.press = e.pressure || 0; WS.downTime = performance.now();
   const card = document.getElementById('wsCard');
   if(card){ card.style.transition = 'none'; try{ card.setPointerCapture(e.pointerId); }catch(_){} }
   wsStartHold();
@@ -1151,6 +1152,7 @@ function wsUp(){
   const card = document.getElementById('wsCard');
   if(card) card.style.transition = 'transform .3s cubic-bezier(.2,.9,.3,1.2)';
   const d = WS.dx;
+  if(performance.now() - (WS.downTime || 0) < 300 && Math.abs(d) < 10){ WS.dx = 0; wsPaint(); WS.read = true; renderDeck(); return; }
   if(d < -90){ wsPass(); return; }
   if(d > 90){
     WS.dx = 0; wsPaint();
