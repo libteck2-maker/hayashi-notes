@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>視聴ノート｜インディーズ林インターン（非公式）</title>
 <meta name="theme-color" content="#14342b">
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
 <link rel="icon" href="icon-180.png">
 <link rel="apple-touch-icon" href="icon-180.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -115,6 +116,27 @@
   .strip .longmark{color:var(--danger); font-weight:700}
   .srcchips{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch}
   .srcchips .chip{flex:none}
+
+  /* ---- ポスト工房ドット絵パック版（2026-11-28） ---- */
+  .ws-root{font-family:'DotGothic16',sans-serif; background-color:#10231a;
+    background-image:linear-gradient(rgba(92,225,166,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(92,225,166,.07) 1px,transparent 1px);
+    background-size:16px 16px; color:#fff6dc; margin:-14px -12px; height:calc(100dvh - 148px); min-height:600px;
+    position:relative; overflow:hidden}
+  .ws-root button{font-family:'DotGothic16',sans-serif; border-radius:0; -webkit-tap-highlight-color:transparent}
+  .ws-root .pxbtn:active{transform:translate(4px,4px) !important; box-shadow:0 0 0 #0b1510 !important}
+  .ws-root button:focus-visible, .ws-root textarea:focus-visible{outline:3px solid #5ce1a6; outline-offset:3px}
+  .ws-root textarea:focus{outline:none}
+  @keyframes wsDealA{0%{opacity:0;transform:translateY(90px) scale(.55) rotate(-10deg)}60%{opacity:1;transform:translateY(-12px) scale(1.05) rotate(2deg)}100%{transform:none}}
+  @keyframes wsDealB{0%{opacity:0;transform:translateY(90px) scale(.55) rotate(10deg)}60%{opacity:1;transform:translateY(-12px) scale(1.05) rotate(-2deg)}100%{transform:none}}
+  @keyframes wsRetA{0%{opacity:0;transform:translateX(-440px) rotate(-18deg)}70%{opacity:1;transform:translateX(14px) rotate(2deg)}100%{transform:none}}
+  @keyframes wsRetB{0%{opacity:0;transform:translateX(-440px) rotate(-18deg)}70%{opacity:1;transform:translateX(14px) rotate(2deg)}100%{transform:none}}
+  @keyframes wsShine{0%,55%{background-position:160% 0}100%{background-position:-60% 0}}
+  @keyframes wsShake{0%,100%{transform:none}20%{transform:translate(-6px,2px) rotate(-2deg)}40%{transform:translate(6px,-2px) rotate(2deg)}60%{transform:translate(-4px,0) scale(1.04)}80%{transform:translate(4px,0) scale(1.06)}}
+  @keyframes wsPop{0%{transform:scale(.2) rotate(-12deg);opacity:0}50%{transform:scale(1.25) rotate(4deg);opacity:1}100%{transform:scale(1) rotate(-4deg)}}
+  @keyframes wsBlink{50%{opacity:0}}
+  @keyframes wsFlash{0%{opacity:.9}100%{opacity:0}}
+  @keyframes wsUp{from{transform:translateY(100%)}to{transform:none}}
+  @media (prefers-reduced-motion: reduce){ .ws-root *{animation:none !important; transition:none !important} }
 </style>
 </head>
 <body>
@@ -166,6 +188,7 @@ const S = {
   postTab: 'candidate',
   postKind: 'all',
   postSrc: 'all', postOpen: null, postQ: '', postRot: 0, reunionId: null,
+  wsMode: 'card', wsGenre: 'all', wsOrder: null, wsLast: null, wsEditId: null,
   curVideo: null,
   transcripts: {},
 };
@@ -694,7 +717,7 @@ function findReunion(newBody, excludeId){
   });
   return bestScore>=3 ? best : null;
 }
-function renderPosts(){
+function renderPostsManage(){
   const el = document.getElementById('view-posts');
   const tab = S.postTab;
   const sf = S.postSrc || 'all';
@@ -757,6 +780,7 @@ function renderPosts(){
   };
   const reunion = S.reunionId ? S.posts.find(p=>p.id===S.reunionId) : null;
   el.innerHTML = `
+    <div style="margin:0 0 10px"><button class="small" id="wsBackToDeck">◀ 札にもどる</button></div>
     <div class="card">
       <p style="margin:0 0 6px"><strong>気づきを書く</strong></p>
       <textarea id="insightBody" style="min-height:64px" placeholder="気づいたことを、そのままの言葉で"></textarea>
@@ -767,7 +791,7 @@ function renderPosts(){
     </div>
     ${reunion ? '<p class="muted" style="margin:2px 2px 6px">書いた言葉で、昔の種が浮いてきました</p>' + strip(reunion) : ''}
     <div class="card">
-      <div class="row">${tabBtn('candidate','候補')} ${tabBtn('draft','下書き')} ${tabBtn('posted','投稿済み')}
+      <div class="row">${tabBtn('draft','下書き')} ${tabBtn('posted','投稿済み')}
         <span class="grow"></span>
         ${tab==='candidate' ? '<button class="small ghost" id="rotBtn">入れ替え</button>' : ''}
         <button class="small" id="newPostBtn">＋ 新しく書く</button>
@@ -777,6 +801,8 @@ function renderPosts(){
       <p class="muted" style="margin:8px 0 0">${tab==='candidate' ? inTab.length+'個の言葉が眠っています。' : tab==='draft' ? '下書きは君の言葉だけ。' : '出した言葉の足跡です。'}</p>
     </div>
     ${rows.map(strip).join('') || '<div class="card"><p class="muted">ここにはまだありません。</p></div>'}`;
+  const bk = document.getElementById('wsBackToDeck');
+  if(bk) bk.addEventListener('click', ()=>{ S.wsMode = 'card'; renderPosts(); });
   const ib = document.getElementById('insightBody');
   if(ib){
     ib.value = localStorage.getItem('vn-insight-draft') || '';
@@ -789,31 +815,30 @@ function renderPosts(){
     if(error || !data){ toast('入れられませんでした'); return; }
     localStorage.removeItem('vn-insight-draft');
     S.posts.unshift(data);
-    const re = findReunion(body, data.id);
-    S.reunionId = re ? re.id : null;
-    S.postTab = 'candidate'; S.postSrc = 'all'; S.postQ = ''; S.postOpen = null;
+    S.reunionId = null;
+    S.wsMode = 'card'; S.wsGenre = 'all'; wsBuildOrder();
     renderPosts();
     toast('入れました');
   });
-  el.querySelectorAll('[data-ptab]').forEach(c=> c.addEventListener('click', ()=>{ S.postTab = c.dataset.ptab; S.postSrc = 'all'; S.postOpen = null; S.reunionId = null; renderPosts(); }));
-  el.querySelectorAll('[data-psrc]').forEach(c=> c.addEventListener('click', ()=>{ S.postSrc = c.dataset.psrc; S.postOpen = null; renderPosts(); }));
+  el.querySelectorAll('[data-ptab]').forEach(c=> c.addEventListener('click', ()=>{ S.postTab = c.dataset.ptab; S.postSrc = 'all'; S.postOpen = null; S.reunionId = null; renderPostsManage(); }));
+  el.querySelectorAll('[data-psrc]').forEach(c=> c.addEventListener('click', ()=>{ S.postSrc = c.dataset.psrc; S.postOpen = null; renderPostsManage(); }));
   const rotBtn = document.getElementById('rotBtn');
-  if(rotBtn) rotBtn.addEventListener('click', ()=>{ S.postRot = (S.postRot||0) + 5; S.postOpen = null; renderPosts(); });
+  if(rotBtn) rotBtn.addEventListener('click', ()=>{ S.postRot = (S.postRot||0) + 5; S.postOpen = null; renderPostsManage(); });
   const searchEl = document.getElementById('postSearch');
   if(searchEl){
     searchEl.addEventListener('focus', ()=>{ S._searchFocus = true; });
     searchEl.addEventListener('blur', ()=>{ S._searchFocus = false; });
     searchEl.addEventListener('input', ()=>{
       clearTimeout(saveTimers['postsearch']);
-      saveTimers['postsearch'] = setTimeout(()=>{ S.postQ = searchEl.value; S.postOpen = null; renderPosts(); }, 350);
+      saveTimers['postsearch'] = setTimeout(()=>{ S.postQ = searchEl.value; S.postOpen = null; renderPostsManage(); }, 350);
     });
     if(S._searchFocus){ searchEl.focus(); try{ searchEl.setSelectionRange(searchEl.value.length, searchEl.value.length); }catch(e){} }
   }
   document.getElementById('newPostBtn').addEventListener('click', async ()=>{
     const { data, error } = await sb.from('vn_posts').insert({ body: '', status: S.postTab==='posted' ? 'draft' : S.postTab }).select().single();
-    if(!error && data){ S.posts.unshift(data); if(S.postTab==='posted') S.postTab='draft'; S.postSrc='all'; S.postQ=''; S.postOpen = data.id; renderPosts(); }
+    if(!error && data){ S.posts.unshift(data); if(S.postTab==='posted') S.postTab='draft'; S.postSrc='all'; S.postQ=''; S.postOpen = data.id; renderPostsManage(); }
   });
-  el.querySelectorAll('[data-open-strip]').forEach(s=> s.addEventListener('click', ()=>{ S.postOpen = s.dataset.openStrip; S.reunionId = null; renderPosts(); }));
+  el.querySelectorAll('[data-open-strip]').forEach(s=> s.addEventListener('click', ()=>{ S.postOpen = s.dataset.openStrip; S.reunionId = null; renderPostsManage(); }));
   el.querySelectorAll('[data-rw-input]').forEach(t=> t.addEventListener('input', ()=>{
     const id = t.dataset.rwInput;
     const st = document.getElementById('rss-'+id); if(st) st.textContent = '端末に下書き…';
@@ -843,25 +868,496 @@ function renderPosts(){
     const rw = ((rwEl ? rwEl.value : '') || (p ? p.rewrite : '') || '').trim();
     if(!rw){ toast('直しを書くと下書きにできます'); return; }
     const { error } = await sb.from('vn_posts').update({ status: 'draft', updated_at: new Date().toISOString() }).eq('id', b.dataset.draftPost);
-    if(!error){ const p = S.posts.find(x=>x.id===b.dataset.draftPost); if(p) p.status='draft'; S.postTab='draft'; S.postOpen=null; renderPosts(); toast('下書きにしました'); }
+    if(!error){ const p = S.posts.find(x=>x.id===b.dataset.draftPost); if(p) p.status='draft'; S.postTab='draft'; S.postOpen=null; renderPostsManage(); toast('下書きにしました'); }
   }));
   el.querySelectorAll('[data-cand-post]').forEach(b=> b.addEventListener('click', async ()=>{
     const { error } = await sb.from('vn_posts').update({ status: 'candidate', updated_at: new Date().toISOString() }).eq('id', b.dataset.candPost);
-    if(!error){ const p = S.posts.find(x=>x.id===b.dataset.candPost); if(p) p.status='candidate'; S.postTab='candidate'; S.postOpen=null; renderPosts(); toast('候補に戻しました'); }
+    if(!error){ const p = S.posts.find(x=>x.id===b.dataset.candPost); if(p) p.status='candidate'; S.postTab='candidate'; S.postOpen=null; renderPostsManage(); toast('候補に戻しました'); }
   }));
   el.querySelectorAll('[data-done-post]').forEach(b=> b.addEventListener('click', async ()=>{
     const url = prompt('投稿のURL（空でもOK）', '');
     if(url === null) return;
     const { error } = await sb.from('vn_posts').update({ status: 'posted', post_url: url || null, updated_at: new Date().toISOString() }).eq('id', b.dataset.donePost);
-    if(!error){ const p = S.posts.find(x=>x.id===b.dataset.donePost); if(p){ p.status='posted'; p.post_url = url||null; } S.postOpen=null; renderPosts(); toast('投稿済みにしました'); }
+    if(!error){ const p = S.posts.find(x=>x.id===b.dataset.donePost); if(p){ p.status='posted'; p.post_url = url||null; } S.postOpen=null; renderPostsManage(); toast('投稿済みにしました'); }
   }));
   el.querySelectorAll('[data-del-post]').forEach(b=> b.addEventListener('click', async ()=>{
     if(!confirm('この種を消しますか？')) return;
     await sb.from('vn_posts').delete().eq('id', b.dataset.delPost);
     S.posts = S.posts.filter(p=>p.id!==b.dataset.delPost);
     S.postOpen = null;
-    renderPosts();
+    renderPostsManage();
   }));
+}
+
+
+/* ---------- ポスト工房：ドット絵パック版（2026-11-28） ---------- */
+const WS_GENRES = [['all','すべて','#5ce1a6'],['rel','関係','#ff7ab6'],['work','仕事・狩り','#ff8a2b'],['money','お金','#ffd23f'],['photo','写真','#43d9ff'],['post','発信','#a77bff']];
+const WS_HOLD_MS = 750;
+const WS_REDUCED = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const WS_SPARK_COLORS = ['#ffd23f','#ff5a3c','#5ce1a6','#43d9ff','#ff7ab6','#fff6dc'];
+const WS = { dx:0, drag:false, hold:0, raf:0, startX:0, press:0, held:false, deciding:false, deal:0, ret:false, banner:false, toastMsg:'', toastTimer:0, bannerTimer:0, insight:false };
+function wsGenreOf(p){ return p.genre || 'all'; }
+function wsGenreMeta(g){ return WS_GENRES.find(x=>x[0]===g) || WS_GENRES[0]; }
+function wsCandidates(){ return S.posts.filter(p=>p.status==='candidate'); }
+function wsBuildOrder(){
+  const asc = [...wsCandidates()].sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
+  S.wsOrder = asc.map(p=>p.id);
+}
+function wsDeck(){
+  if(!S.wsOrder) wsBuildOrder();
+  const g = S.wsGenre || 'all';
+  return S.wsOrder.map(id=> S.posts.find(p=>p.id===id)).filter(p=> p && p.status==='candidate' && (g==='all' || wsGenreOf(p)===g));
+}
+function wsSplit(p){
+  const body = (p.body || '').trim();
+  if(!body) return { seed:'', body:'' };
+  const nl = body.indexOf('\n');
+  if(nl > 0 && nl < 120) return { seed: body.slice(0, nl).trim(), body: body.slice(nl + 1).trim() };
+  if(body.length > 90){
+    const i = body.indexOf('。');
+    if(i > 10 && i < 90) return { seed: body.slice(0, i + 1), body: body.slice(i + 1).trim() };
+  }
+  return { seed: body, body: '' };
+}
+function renderPosts(){
+  if(S.wsMode === 'manage'){ renderPostsManage(); return; }
+  renderDeck();
+}
+function wsToast(msg){
+  WS.toastMsg = msg;
+  if(S.wsMode === 'card') renderDeck();
+  clearTimeout(WS.toastTimer);
+  WS.toastTimer = setTimeout(()=>{ WS.toastMsg = ''; if(S.wsMode === 'card' && S.view === 'posts') renderDeck(); }, 1800);
+}
+function renderDeck(){
+  const el = document.getElementById('view-posts');
+  if(S.wsMode === 'pack'){ el.innerHTML = wsPackHTML(); wsBindCommon(el); return; }
+  if(S.wsMode === 'edit'){ el.innerHTML = wsEditHTML(); wsBindEdit(el); return; }
+  el.innerHTML = wsCardHTML();
+  wsBindCommon(el);
+  wsBindCard(el);
+}
+function wsBindCommon(el){
+  el.querySelectorAll('[data-ws]').forEach(b=> b.addEventListener('click', ()=>{
+    const act = b.dataset.ws;
+    if(act === 'open-pack'){ S.wsMode = 'pack'; renderDeck(); }
+    if(act === 'close-pack'){ S.wsMode = 'card'; renderDeck(); }
+    if(act === 'pick-pack'){ S.wsGenre = b.dataset.genre; S.wsMode = 'card'; WS.deal++; WS.ret = false; renderDeck(); }
+    if(act === 'to-manage'){ S.wsMode = 'manage'; S.postTab = 'draft'; S.postOpen = null; renderPostsManage(); }
+    if(act === 'pass') wsPass();
+    if(act === 'undo') wsUndo();
+    if(act === 'decide') wsDecide();
+    if(act === 'blank') wsBlank();
+    if(act === 'insight-open'){ WS.insight = true; renderDeck(); const t = document.getElementById('wsInsightBody'); if(t){ t.value = localStorage.getItem('vn-insight-draft') || ''; t.focus(); } }
+    if(act === 'insight-close'){ WS.insight = false; renderDeck(); }
+    if(act === 'insight-save') wsInsightSave();
+  }));
+}
+function wsCardHTML(){
+  const deck = wsDeck();
+  const cur = deck[0], next = deck[1];
+  const g = S.wsGenre || 'all';
+  const gm = wsGenreMeta(g);
+  const draftCount = S.posts.filter(p=>p.status==='draft').length;
+  const canUndo = !!S.wsLast;
+  let stage = '';
+  if(cur){
+    const sp = wsSplit(cur);
+    const cm = wsGenreMeta(wsGenreOf(cur));
+    const cat = postSourceCat(cur);
+    const anim = WS.deciding ? 'wsShake .45s steps(6)' : (WS.ret ? (WS.deal % 2 ? 'wsRetA' : 'wsRetB') : (WS.deal % 2 ? 'wsDealA' : 'wsDealB')) + ' .5s cubic-bezier(.2,.9,.3,1.1)';
+    stage = `
+    ${next ? '<div style="position:absolute;inset:16px -8px -6px 8px;background:'+wsGenreMeta(wsGenreOf(next))[2]+';border:4px solid #0b1510;transform:rotate(3deg)"></div>' : ''}
+    <div id="wsCard" style="position:absolute;inset:0;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab">
+      <div style="position:absolute;inset:0;animation:${WS_REDUCED ? 'none' : anim}">
+        <div style="position:absolute;inset:0;background:#fff6dc;border:4px solid #0b1510;box-shadow:inset 0 0 0 6px ${cm[2]},8px 8px 0 #0b1510;display:flex;flex-direction:column;padding:22px 20px 18px;box-sizing:border-box;color:#1a1f1a;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <span style="background:${cm[2]};color:#0b1510;border:3px solid #0b1510;padding:3px 8px;font-size:13px;flex:none">${cm[1]}</span>
+            <span style="font-size:13px;color:#4b4f45">出典：${esc(cat.label)}</span>
+          </div>
+          <div style="margin-top:14px;font-size:12px;letter-spacing:.3em;color:#4b4f45">― 種 ―</div>
+          <div style="margin-top:6px;overflow-y:auto;flex:1;min-height:0;-webkit-overflow-scrolling:touch;touch-action:pan-y">
+            <div style="font-size:21px;line-height:1.55;color:#0b1510;white-space:pre-wrap;word-break:break-word">${esc(sp.seed)}</div>
+            ${sp.body ? '<div style="margin-top:10px;font-family:\'Zen Kaku Gothic New\',sans-serif;font-size:14px;line-height:1.75;color:#2b2f28;white-space:pre-wrap;word-break:break-word">'+esc(sp.body)+'</div>' : ''}
+          </div>
+          <div style="flex:none;min-height:12px"></div>
+          <div style="position:relative;background:#0b1510;border:3px solid #fff6dc;outline:3px solid #0b1510;padding:12px 14px 16px;color:#fff6dc">
+            <div style="font-size:12px;color:#5ce1a6;margin-bottom:6px">AI「叩き台やで。このままは出さんといてな」</div>
+            <div style="font-family:'Zen Kaku Gothic New',sans-serif;font-size:13px;line-height:1.75;max-height:118px;overflow-y:auto;touch-action:pan-y">${cur.ai_draft ? esc(cur.ai_draft) : 'まだ書いてへん。種だけで勝負できる札。'}</div>
+            <span style="position:absolute;right:10px;bottom:4px;font-size:12px;animation:wsBlink 1s steps(1) infinite">▼</span>
+          </div>
+        </div>
+        <div style="position:absolute;inset:4px;pointer-events:none;background:linear-gradient(105deg,transparent 42%,rgba(255,255,255,.65) 50%,transparent 58%);background-size:260% 100%;animation:${WS_REDUCED ? 'none' : 'wsShine 3.6s ease-in-out infinite'};mix-blend-mode:soft-light"></div>
+        <div id="wsPassStamp" style="position:absolute;top:70px;right:-6px;transform:rotate(12deg);background:#ff5a3c;color:#fff6dc;border:4px solid #0b1510;padding:6px 14px;font-size:28px;box-shadow:4px 4px 0 #0b1510;opacity:0;pointer-events:none">パス</div>
+        <div id="wsUndoStamp" style="position:absolute;top:70px;left:-6px;transform:rotate(-12deg);background:#43d9ff;color:#0b1510;border:4px solid #0b1510;padding:6px 12px;font-size:24px;box-shadow:4px 4px 0 #0b1510;opacity:0;pointer-events:none">${canUndo ? '↶ もどす' : 'もどす札なし'}</div>
+        <div id="wsGlow" style="position:absolute;inset:-10px;border:6px solid #ffd23f;box-shadow:0 0 0 4px #0b1510;opacity:0;pointer-events:none"></div>
+        <div id="wsHoldBox" style="position:absolute;left:28px;right:28px;top:42%;background:#0b1510;border:4px solid #ffd23f;padding:12px 14px;pointer-events:none;text-align:center;display:none">
+          <div id="wsHoldText" style="font-size:18px;color:#ffd23f;margin-bottom:8px">ためて…</div>
+          <div style="display:flex;gap:3px;height:16px">${Array.from({length:10}, ()=>'<div data-hcell style="flex:1;background:#24402f"></div>').join('')}</div>
+        </div>
+      </div>
+    </div>`;
+  } else {
+    const allDone = wsCandidates().length === 0;
+    stage = `<div style="position:absolute;inset:0;border:4px dashed #5ce1a6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:24px">
+      <div style="font-size:24px;color:#fff6dc">${allDone ? '札は全部立てた' : 'このパックは準備中'}</div>
+      <div style="font-size:14px;color:#5ce1a6;line-height:1.7">${allDone ? 'おつかれさま。下書きから出していこ' : 'ジャンル分けが済んだら<br>札が入るで'}</div>
+    </div>`;
+  }
+  const sparks = Array.from({length:16}, (_, i)=>{
+    const a = (i / 16) * Math.PI * 2, r = 120 + (i % 3) * 40;
+    return '<div data-spark="'+i+'" data-sx="'+Math.round(Math.cos(a)*r)+'" data-sy="'+Math.round(Math.sin(a)*r)+'" style="position:absolute;left:50%;top:44%;width:'+(i % 2 ? 10 : 16)+'px;height:'+(i % 2 ? 10 : 16)+'px;background:'+WS_SPARK_COLORS[i % 6]+';border:2px solid #0b1510;transform:translate(0,0) scale(0);opacity:1"></div>';
+  }).join('');
+  return `<div class="ws-root">
+  <div style="height:100%;display:flex;flex-direction:column;max-width:560px;margin:0 auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 18px 0">
+      <button class="pxbtn" data-ws="open-pack" style="height:48px;display:flex;align-items:center;gap:10px;padding:0 14px 0 8px;background:#fff6dc;color:#0b1510;border:4px solid #0b1510;box-shadow:4px 4px 0 #0b1510;font-size:16px;cursor:pointer">
+        <span style="width:22px;height:28px;background:${gm[2]};border:3px solid #0b1510;box-sizing:border-box"></span>${gm[1]}パック ▼</button>
+      <div style="height:40px;display:flex;align-items:center;gap:8px;padding:0 12px;background:#0b1510;border:3px solid #ffd23f;color:#ffd23f;font-size:16px">
+        <span style="width:14px;height:14px;background:#ffd23f;box-shadow:inset -3px -3px 0 #c99a00"></span>候補 ×${draftCount}</div>
+    </div>
+    <div style="padding:14px 22px 0;font-size:14px;color:#5ce1a6;letter-spacing:.1em">のこり ${deck.length}まい　パスした札は山の後ろへ</div>
+    <div style="position:relative;flex:1;margin:18px 24px 0">${stage}</div>
+    <div style="display:flex;justify-content:space-between;padding:18px 22px 0;font-size:13px;color:#5ce1a6"><span>◀ はらって パス</span><span style="color:#ffd23f">ながおしで これだ！</span><span>もどす ▶</span></div>
+    <div style="display:flex;gap:12px;padding:12px 24px 0">
+      <button class="pxbtn" data-ws="pass" style="flex:1;height:64px;padding:0 6px;white-space:nowrap;background:#ff5a3c;color:#fff6dc;border:4px solid #0b1510;box-shadow:5px 5px 0 #0b1510;font-size:22px;cursor:pointer">◀ パス</button>
+      <button class="pxbtn" data-ws="undo" ${canUndo ? '' : 'disabled'} style="width:64px;flex:none;height:64px;background:${canUndo ? '#43d9ff' : '#2a4536'};color:${canUndo ? '#0b1510' : '#6f8577'};border:4px solid #0b1510;box-shadow:5px 5px 0 #0b1510;font-size:26px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;gap:2px">↶<span style="font-size:10px">もどる</span></button>
+      <button class="pxbtn" data-ws="decide" style="flex:1.6;height:64px;padding:0 6px;white-space:nowrap;background:#ffd23f;color:#0b1510;border:4px solid #0b1510;box-shadow:5px 5px 0 #0b1510;font-size:24px;cursor:pointer">これだ！ ▶</button>
+    </div>
+    <div style="display:flex;justify-content:center;gap:26px;padding:6px 0 14px">
+      <button data-ws="blank" style="height:44px;border:none;background:transparent;color:#5ce1a6;font-size:15px;cursor:pointer">＋ 白紙から</button>
+      <button data-ws="insight-open" style="height:44px;border:none;background:transparent;color:#5ce1a6;font-size:15px;cursor:pointer">＋ 気づき</button>
+    </div>
+  </div>
+  ${WS.deciding ? '<div style="position:absolute;inset:0;pointer-events:none"><div style="position:absolute;inset:0;background:#ffd23f;animation:wsFlash .5s ease-out forwards"></div>'+sparks+'<div style="position:absolute;left:0;right:0;top:38%;display:flex;justify-content:center"><div style="font-size:64px;color:#ffd23f;text-shadow:4px 0 #0b1510,-4px 0 #0b1510,0 4px #0b1510,0 -4px #0b1510,8px 8px 0 #ff5a3c;animation:wsPop .45s cubic-bezier(.2,.9,.3,1.4) forwards">これだ！</div></div></div>' : ''}
+  ${WS.banner ? '<div style="position:absolute;left:0;right:0;top:34%;display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none"><div style="font-size:56px;color:#5ce1a6;text-shadow:4px 0 #0b1510,-4px 0 #0b1510,0 4px #0b1510,0 -4px #0b1510,8px 8px 0 #ffd23f;animation:wsPop .45s cubic-bezier(.2,.9,.3,1.4) forwards">GET!</div><div style="background:#0b1510;border:3px solid #ffd23f;color:#ffd23f;padding:8px 14px;font-size:16px">ポスト候補に立てた　まちがいなら ↶</div></div>' : ''}
+  ${WS.toastMsg ? '<div style="position:absolute;left:24px;right:24px;bottom:150px;background:#0b1510;border:3px solid #43d9ff;color:#43d9ff;padding:10px 14px;font-size:15px;text-align:center">↶ '+esc(WS.toastMsg)+'</div>' : ''}
+  ${WS.insight ? '<div style="position:absolute;inset:0;background:rgba(6,16,11,.82);display:flex;align-items:center;justify-content:center;padding:22px"><div style="background:#fff6dc;border:4px solid #0b1510;box-shadow:8px 8px 0 #0b1510;padding:18px;width:100%;max-width:480px;color:#0b1510"><div style="font-size:17px;margin-bottom:8px">気づきを書く</div><textarea id="wsInsightBody" placeholder="気づいたことを、そのままの言葉で" style="width:100%;min-height:110px;border:3px solid #0b1510;border-radius:0;background:#fffdf4;font-family:\'Zen Kaku Gothic New\',sans-serif;font-size:16px;padding:10px;box-sizing:border-box"></textarea><div style="display:flex;gap:10px;margin-top:12px"><button data-ws="insight-close" style="flex:1;height:52px;background:#fff6dc;color:#0b1510;border:4px solid #0b1510;font-size:16px;cursor:pointer">やめる</button><button class="pxbtn" data-ws="insight-save" style="flex:1.4;height:52px;background:#14342b;color:#fff6dc;border:4px solid #0b1510;box-shadow:4px 4px 0 #0b1510;font-size:16px;cursor:pointer">入れる</button></div></div></div>' : ''}
+  </div>`;
+}
+function wsPackHTML(){
+  const cands = wsCandidates();
+  const cur = S.wsGenre || 'all';
+  const packs = WS_GENRES.map(([id, label, color])=>{
+    const n = id === 'all' ? cands.length : cands.filter(p=>wsGenreOf(p)===id).length;
+    const on = cur === id;
+    return `<button data-ws="pick-pack" data-genre="${id}" aria-label="${label}パック ${n ? n+'枚' : '準備中'}" style="position:relative;height:200px;border:none;background:transparent;padding:0;cursor:pointer">
+      <div style="position:absolute;inset:8px -4px -4px 8px;background:#0b1510"></div>
+      <div style="position:absolute;inset:0;background:${color};border:4px solid ${on ? '#ffd23f' : '#0b1510'};clip-path:polygon(0 8px,12.5% 0,25% 8px,37.5% 0,50% 8px,62.5% 0,75% 8px,87.5% 0,100% 8px,100% 100%,0 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;box-sizing:border-box">
+        <div style="width:44px;height:44px;background:#fff6dc;border:4px solid #0b1510;transform:rotate(45deg)"></div>
+        <div style="font-size:16px;color:#fff6dc;text-shadow:2px 0 #0b1510,-2px 0 #0b1510,0 2px #0b1510,0 -2px #0b1510;padding:0 4px">${label}</div>
+        <div style="font-size:12px;background:#0b1510;color:#fff6dc;padding:2px 6px">${n ? n+'まい' : '準備中'}</div>
+      </div>
+      ${on ? '<div style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:#ffd23f;color:#0b1510;border:3px solid #0b1510;font-size:11px;padding:1px 6px;white-space:nowrap;z-index:2">いまココ</div>' : ''}
+    </button>`;
+  }).join('');
+  return `<div class="ws-root"><div style="height:100%;box-sizing:border-box;padding:28px 22px 24px;display:flex;flex-direction:column;max-width:560px;margin:0 auto">
+    <div style="font-size:30px;color:#ffd23f;text-shadow:3px 3px 0 #0b1510">パックをえらぶ</div>
+    <div style="font-size:15px;color:#5ce1a6;margin:8px 0 22px">いまの気分で、どれを開ける？</div>
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 14px">${packs}</div>
+    <div style="flex:1"></div>
+    <button class="pxbtn" data-ws="close-pack" style="height:56px;background:#fff6dc;color:#0b1510;border:4px solid #0b1510;box-shadow:4px 4px 0 #0b1510;font-size:18px;cursor:pointer">もどる</button>
+    <button data-ws="to-manage" style="height:44px;margin-top:10px;border:none;background:transparent;color:#5ce1a6;font-size:14px;cursor:pointer">下書き・投稿済みを見る</button>
+  </div></div>`;
+}
+
+/* ---------- 札の操作 ---------- */
+function wsBindCard(el){
+  const card = el.querySelector('#wsCard');
+  if(!card) return;
+  card.addEventListener('pointerdown', wsDown);
+  card.addEventListener('pointermove', wsMove);
+  card.addEventListener('pointerup', wsUp);
+  card.addEventListener('pointercancel', wsUp);
+}
+function wsPaint(){
+  const card = document.getElementById('wsCard');
+  if(!card) return;
+  const h = WS.hold || 0;
+  const jit = h > 0.35 ? Math.round((Math.random() - 0.5) * 8 * h) : 0;
+  card.style.transform = 'translate(' + (WS.dx + jit) + 'px,' + (jit / 2) + 'px) rotate(' + (WS.dx / 18) + 'deg) scale(' + (1 - 0.05 * h) + ')';
+  const ps = document.getElementById('wsPassStamp'); if(ps) ps.style.opacity = Math.min(1, Math.max(0, -WS.dx / 80));
+  const us = document.getElementById('wsUndoStamp'); if(us) us.style.opacity = Math.min(1, Math.max(0, WS.dx / 80));
+  const glow = document.getElementById('wsGlow'); if(glow) glow.style.opacity = Math.min(1, h * 1.3);
+  const box = document.getElementById('wsHoldBox');
+  if(box){
+    box.style.display = h > 0.02 ? 'block' : 'none';
+    const tx = document.getElementById('wsHoldText'); if(tx) tx.textContent = h > 0.75 ? 'これだ…！' : 'ためて…';
+    const f = Math.floor(h * 10);
+    box.querySelectorAll('[data-hcell]').forEach((c, i)=>{ c.style.background = i < f ? (i > 6 ? '#ff5a3c' : '#ffd23f') : '#24402f'; });
+  }
+}
+function wsStartHold(){
+  wsStopHold(true);
+  let prev = performance.now();
+  const tick = (now)=>{
+    const boost = WS.press > 0.6 ? 1 + (WS.press - 0.6) * 4 : 1;
+    WS.hold += (now - prev) / WS_HOLD_MS * boost;
+    prev = now;
+    if(WS.hold >= 1){ WS.raf = 0; WS.hold = 0; WS.held = true; wsPaint(); wsDecide(); return; }
+    wsPaint();
+    WS.raf = requestAnimationFrame(tick);
+  };
+  WS.raf = requestAnimationFrame(tick);
+}
+function wsStopHold(keep){
+  if(WS.raf) cancelAnimationFrame(WS.raf);
+  WS.raf = 0;
+  if(!keep){ WS.hold = 0; wsPaint(); }
+}
+function wsDown(e){
+  if(WS.deciding) return;
+  WS.drag = true; WS.held = false; WS.startX = e.clientX; WS.press = e.pressure || 0;
+  const card = document.getElementById('wsCard');
+  if(card){ card.style.transition = 'none'; try{ card.setPointerCapture(e.pointerId); }catch(_){} }
+  wsStartHold();
+}
+function wsMove(e){
+  if(!WS.drag) return;
+  if(e.pressure) WS.press = e.pressure;
+  const d = e.clientX - WS.startX;
+  if(Math.abs(d) > 10) wsStopHold();
+  if(!WS.raf){ WS.dx = d; wsPaint(); }
+}
+function wsUp(){
+  if(!WS.drag) return;
+  WS.drag = false;
+  wsStopHold();
+  if(WS.held){ WS.held = false; return; }
+  const card = document.getElementById('wsCard');
+  if(card) card.style.transition = 'transform .3s cubic-bezier(.2,.9,.3,1.2)';
+  const d = WS.dx;
+  if(d < -90){ wsPass(); return; }
+  if(d > 90){
+    WS.dx = 0; wsPaint();
+    if(S.wsLast) wsUndo(); else wsToast('もどせる札はまだないで');
+    return;
+  }
+  WS.dx = 0; wsPaint();
+}
+function wsPass(){
+  const cur = wsDeck()[0];
+  if(!cur || WS.deciding) return;
+  const card = document.getElementById('wsCard');
+  if(card && !WS_REDUCED){ card.style.transition = 'transform .26s ease-in'; WS.dx = -560; wsPaint(); }
+  setTimeout(()=>{
+    S.wsOrder = (S.wsOrder || []).filter(x=>x !== cur.id); S.wsOrder.push(cur.id);
+    WS.dx = 0; WS.deal++; WS.ret = false;
+    S.wsLast = { type: 'pass', id: cur.id };
+    if(S.wsMode === 'card') renderDeck();
+  }, WS_REDUCED ? 0 : 260);
+}
+function wsUndo(){
+  const l = S.wsLast;
+  if(!l) return;
+  if(l.type === 'pass'){
+    S.wsOrder = [l.id].concat((S.wsOrder || []).filter(x=>x !== l.id));
+    S.wsLast = null; WS.deal++; WS.ret = true; S.wsMode = 'card';
+    renderDeck();
+    wsToast('パスした札を戻した');
+    return;
+  }
+  /* submit の取り消し */
+  sb.from('vn_posts').update({ status: 'candidate', updated_at: new Date().toISOString() }).eq('id', l.id).then(({ error })=>{
+    if(error){ toast('戻せませんでした'); return; }
+    const p = S.posts.find(x=>x.id===l.id);
+    if(p) p.status = 'candidate';
+    S.wsOrder = l.order; S.wsLast = null;
+    S.wsEditId = l.id; S.wsMode = 'edit';
+    renderDeck();
+    wsToastEdit('候補から戻した。直しの続きからどうぞ');
+  });
+}
+function wsToastEdit(msg){
+  const b = document.getElementById('wsEditToast');
+  if(b){ b.textContent = '↶ ' + msg; b.style.display = 'block'; setTimeout(()=>{ b.style.display = 'none'; }, 1800); }
+}
+function wsDecide(){
+  const cur = wsDeck()[0];
+  if(!cur || WS.deciding) return;
+  WS.dx = 0;
+  if(WS_REDUCED){ wsOpenEdit(cur.id); return; }
+  WS.deciding = true;
+  renderDeck();
+  setTimeout(()=>{
+    document.querySelectorAll('[data-spark]').forEach(s=>{
+      s.style.transition = 'transform .6s cubic-bezier(.1,.8,.2,1),opacity .5s ease-in .35s';
+      s.style.transform = 'translate(' + s.dataset.sx + 'px,' + s.dataset.sy + 'px) rotate(45deg)';
+      s.style.opacity = '0';
+    });
+  }, 30);
+  setTimeout(()=>{ WS.deciding = false; wsOpenEdit(cur.id); }, 1000);
+}
+function wsOpenEdit(id){
+  S.wsEditId = id; S.wsMode = 'edit';
+  renderDeck();
+}
+/* ---------- 直しタイム ---------- */
+function wsEditPost(){ return S.posts.find(p=>p.id===S.wsEditId) || null; }
+function wsEditHTML(){
+  const p = wsEditPost();
+  if(!p) return '<div class="ws-root"><div style="padding:28px 22px">札が見つかりません。<button data-ws="close-pack" style="margin-top:14px;height:52px;background:#fff6dc;color:#0b1510;border:4px solid #0b1510;font-size:16px;padding:0 18px;cursor:pointer">山にもどる</button></div></div>';
+  const cm = wsGenreMeta(wsGenreOf(p));
+  const saved = localStorage.getItem('vn-rewrite-' + p.id);
+  const rw = saved !== null ? saved : (p.rewrite || '');
+  const same = !!(p.ai_draft && rw.trim() === p.ai_draft.trim());
+  const cannot = !rw.trim() || same;
+  return `<div class="ws-root"><div style="height:100%;box-sizing:border-box;display:flex;flex-direction:column;padding:16px 18px 22px;animation:${WS_REDUCED ? 'none' : 'wsUp .35s cubic-bezier(.2,.9,.3,1.1)'};max-width:560px;margin:0 auto">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <button data-ws="back-pile" style="height:44px;padding:0 6px;border:none;background:transparent;color:#5ce1a6;font-size:15px;cursor:pointer">◀ 山にもどす</button>
+      <span style="background:${cm[2]};color:#0b1510;border:3px solid #0b1510;padding:3px 8px;font-size:13px">${cm[1]}</span>
+    </div>
+    <div style="margin-top:8px;font-size:13px;color:#ffd23f;letter-spacing:.2em">★ 直しタイム ★</div>
+    <div style="margin-top:6px;font-size:18px;line-height:1.55;color:#fff6dc;max-height:22vh;overflow-y:auto;white-space:pre-wrap;word-break:break-word">${p.body ? esc(p.body) : '（白紙の札）'}</div>
+    ${p.ref_text ? '<div style="margin-top:10px;background:rgba(255,246,220,.08);border:2px solid #5ce1a6;padding:8px 11px;font-family:\'Zen Kaku Gothic New\',sans-serif;font-size:12.5px;line-height:1.7;color:#d9e6dc;max-height:76px;overflow-y:auto"><span style="color:#5ce1a6">元のポスト（叩き台）</span><br>'+linkify(p.ref_text)+'</div>' : ''}
+    ${p.ai_draft ? '<div style="margin-top:12px;display:flex;gap:10px;align-items:stretch;background:#0b1510;border:3px solid #fff6dc;padding:10px 12px"><div style="flex:1;font-family:\'Zen Kaku Gothic New\',sans-serif;font-size:12.5px;line-height:1.7;color:#d9e6dc;max-height:64px;overflow-y:auto">'+esc(p.ai_draft)+'</div><button data-ws="copy-ai" style="flex:none;min-height:44px;padding:0 10px;background:#5ce1a6;color:#0b1510;border:3px solid #fff6dc;font-size:13px;cursor:pointer">写す</button></div>' : ''}
+    <div style="flex:1;margin-top:16px;position:relative;background:#fff6dc;border:4px solid #0b1510;box-shadow:inset 0 0 0 6px ${cm[2]},6px 6px 0 #0b1510;display:flex;flex-direction:column;padding:16px 18px 12px;min-height:150px">
+      <label for="wsRw" style="font-size:14px;color:#0b1510">直し（ポストになるのはここだけ）</label>
+      <textarea id="wsRw" placeholder="もっとこう言えばいいやん、を書く" style="flex:1;margin-top:6px;border:none;resize:none;background:repeating-linear-gradient(transparent 0 33px,#e8dcbc 33px 35px);background-color:transparent;line-height:35px;font-size:17px;font-family:'Zen Kaku Gothic New',sans-serif;color:#1a1f1a;padding:0;width:100%">${esc(rw)}</textarea>
+      <div id="wsGuard" style="font-size:12px;color:#c2321b;min-height:16px">${same ? '叩き台のままでは立てられへん' : ''}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-top:16px">
+      <span style="font-size:13px;color:#5ce1a6;flex:none">文字</span>
+      <div id="wsGauge" style="flex:1;display:flex;gap:3px;height:16px;padding:3px;background:#0b1510;border:3px solid #fff6dc"></div>
+      <span id="wsLen" style="font-size:14px;color:#fff6dc;flex:none;width:64px;text-align:right"></span>
+    </div>
+    <div id="wsEditToast" style="display:none;margin-top:12px;background:#0b1510;border:3px solid #43d9ff;color:#43d9ff;padding:9px 12px;font-size:14px;text-align:center"></div>
+    <button class="pxbtn" data-ws="submit" id="wsSubmit" ${cannot ? 'disabled' : ''} style="margin-top:16px;height:64px;background:${cannot ? '#4b5a50' : '#ffd23f'};color:${cannot ? '#a7b3aa' : '#0b1510'};border:4px solid #0b1510;box-shadow:5px 5px 0 #0b1510;font-size:22px;cursor:pointer">候補に立てる！</button>
+  </div></div>`;
+}
+function wsGaugePaint(len){
+  const g = document.getElementById('wsGauge');
+  if(g){
+    const filled = Math.min(20, Math.ceil(len / 7));
+    let html = '';
+    for(let i = 0; i < 20; i++){
+      const c = i < filled ? (len > 140 ? '#ff5a3c' : (i < 14 ? '#5ce1a6' : '#ffd23f')) : '#1f3a2c';
+      html += '<div style="flex:1;background:' + c + '"></div>';
+    }
+    g.innerHTML = html;
+  }
+  const l = document.getElementById('wsLen');
+  if(l) l.textContent = len + '/140';
+}
+function wsEditRefresh(){
+  const p = wsEditPost();
+  const t = document.getElementById('wsRw');
+  if(!p || !t) return;
+  const v = t.value;
+  const same = !!(p.ai_draft && v.trim() === p.ai_draft.trim());
+  const cannot = !v.trim() || same;
+  const gd = document.getElementById('wsGuard');
+  if(gd) gd.textContent = same ? '叩き台のままでは立てられへん' : '';
+  const sbm = document.getElementById('wsSubmit');
+  if(sbm){
+    sbm.disabled = cannot;
+    sbm.style.background = cannot ? '#4b5a50' : '#ffd23f';
+    sbm.style.color = cannot ? '#a7b3aa' : '#0b1510';
+  }
+  wsGaugePaint(v.length);
+}
+function wsBindEdit(el){
+  const p = wsEditPost();
+  wsGaugePaint((document.getElementById('wsRw') || { value: '' }).value.length);
+  el.querySelectorAll('[data-ws]').forEach(b=> b.addEventListener('click', ()=>{
+    const act = b.dataset.ws;
+    if(act === 'back-pile') wsBackPile();
+    if(act === 'close-pack'){ S.wsMode = 'card'; renderDeck(); }
+    if(act === 'copy-ai'){
+      const t = document.getElementById('wsRw');
+      if(t && p && p.ai_draft){ t.value = p.ai_draft; t.dispatchEvent(new Event('input')); t.focus(); }
+    }
+    if(act === 'submit') wsSubmit();
+  }));
+  const t = document.getElementById('wsRw');
+  if(t && p){
+    t.addEventListener('input', ()=>{
+      p.rewrite = t.value;
+      localStorage.setItem('vn-rewrite-' + p.id, t.value);
+      wsEditRefresh();
+      clearTimeout(saveTimers['rw-' + p.id]);
+      saveTimers['rw-' + p.id] = setTimeout(async ()=>{
+        const { error } = await sb.from('vn_posts').update({ rewrite: t.value, updated_at: new Date().toISOString() }).eq('id', p.id);
+        if(!error) localStorage.removeItem('vn-rewrite-' + p.id);
+      }, 900);
+    });
+  }
+}
+async function wsBackPile(){
+  const p = wsEditPost();
+  S.wsMode = 'card';
+  if(p && !((p.body || '').trim())){
+    const rw = (p.rewrite || '').trim();
+    if(!rw){
+      await sb.from('vn_posts').delete().eq('id', p.id);
+      S.posts = S.posts.filter(x=>x.id !== p.id);
+      S.wsOrder = (S.wsOrder || []).filter(x=>x !== p.id);
+      localStorage.removeItem('vn-rewrite-' + p.id);
+      renderDeck();
+      return;
+    }
+    await sb.from('vn_posts').update({ body: rw, updated_at: new Date().toISOString() }).eq('id', p.id);
+    p.body = rw;
+  }
+  if(p){
+    S.wsOrder = (S.wsOrder || []).filter(x=>x !== p.id);
+    S.wsOrder.push(p.id);
+  }
+  WS.deal++; WS.ret = false;
+  renderDeck();
+}
+async function wsSubmit(){
+  const p = wsEditPost();
+  const t = document.getElementById('wsRw');
+  if(!p || !t) return;
+  const v = t.value;
+  if(!v.trim() || (p.ai_draft && v.trim() === p.ai_draft.trim())) return;
+  const prevOrder = [...(S.wsOrder || [])];
+  const patch = { rewrite: v, status: 'draft', updated_at: new Date().toISOString() };
+  if(!((p.body || '').trim())) patch.body = v;
+  const { error } = await sb.from('vn_posts').update(patch).eq('id', p.id);
+  if(error){ toast('立てられませんでした'); return; }
+  p.rewrite = v; p.status = 'draft';
+  if(patch.body) p.body = v;
+  localStorage.removeItem('vn-rewrite-' + p.id);
+  S.wsOrder = (S.wsOrder || []).filter(x=>x !== p.id);
+  S.wsLast = { type: 'submit', id: p.id, order: prevOrder, draft: v };
+  S.wsMode = 'card'; WS.banner = true; WS.deal++; WS.ret = false;
+  renderDeck();
+  clearTimeout(WS.bannerTimer);
+  WS.bannerTimer = setTimeout(()=>{ WS.banner = false; if(S.wsMode === 'card' && S.view === 'posts') renderDeck(); }, 1500);
+}
+async function wsBlank(){
+  const g = S.wsGenre || 'all';
+  const { data, error } = await sb.from('vn_posts').insert({ body: '', status: 'candidate', kind: '対決', genre: g === 'all' ? null : g }).select().single();
+  if(error || !data){ toast('作れませんでした'); return; }
+  S.posts.unshift(data);
+  if(!S.wsOrder) wsBuildOrder();
+  S.wsOrder.unshift(data.id);
+  wsOpenEdit(data.id);
+}
+async function wsInsightSave(){
+  const t = document.getElementById('wsInsightBody');
+  const body = (t ? t.value : '').trim();
+  if(!body){ toast('気づきを書いてください'); return; }
+  const g = S.wsGenre || 'all';
+  const { data, error } = await sb.from('vn_posts').insert({ body, rewrite: body, status: 'candidate', kind: '気づき', genre: g === 'all' ? null : g }).select().single();
+  if(error || !data){ toast('入れられませんでした'); return; }
+  localStorage.removeItem('vn-insight-draft');
+  S.posts.unshift(data);
+  if(!S.wsOrder) wsBuildOrder();
+  S.wsOrder.push(data.id);
+  WS.insight = false;
+  const re = findReunion(body, data.id);
+  if(re && S.wsOrder.indexOf(re.id) >= 0){
+    S.wsOrder = S.wsOrder.filter(x=>x !== re.id);
+    S.wsOrder.splice(Math.min(1, S.wsOrder.length), 0, re.id);
+    renderDeck();
+    toast('入れました。書いた言葉で、昔の種が浮いてきました');
+    return;
+  }
+  renderDeck();
+  toast('入れました');
 }
 
 /* ---------- growth ---------- */
