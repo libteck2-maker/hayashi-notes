@@ -803,6 +803,28 @@ function renderPostsManage(){
     ${rows.map(strip).join('') || '<div class="card"><p class="muted">ここにはまだありません。</p></div>'}`;
   const bk = document.getElementById('wsBackToDeck');
   if(bk) bk.addEventListener('click', ()=>{ S.wsMode = 'card'; renderPosts(); });
+  const offs = S.posts.filter(p=>p.deck_off);
+  if(offs.length){
+    const sec = document.createElement('div');
+    sec.className = 'card';
+    sec.innerHTML = '<p style="margin:0 0 6px"><strong>山から外した札</strong></p>' + offs.map(p=>'<div class="row" style="padding:6px 0; border-bottom:1px solid var(--line)"><div class="grow" style="font-size:13.5px">'+esc((p.body||'').slice(0,60))+'</div><button class="small" data-off-restore="'+p.id+'">山に戻す</button><button class="small ghost" data-off-del="'+p.id+'">消す</button></div>').join('');
+    el.appendChild(sec);
+    sec.querySelectorAll('[data-off-restore]').forEach(b=> b.addEventListener('click', async ()=>{
+      const { error } = await sb.from('vn_posts').update({ deck_off: false, updated_at: new Date().toISOString() }).eq('id', b.dataset.offRestore);
+      if(error){ toast('戻せませんでした'); return; }
+      const p = S.posts.find(x=>x.id===b.dataset.offRestore);
+      if(p) p.deck_off = false;
+      if(S.wsOrder) S.wsOrder.push(b.dataset.offRestore);
+      renderPostsManage();
+      toast('山に戻しました');
+    }));
+    sec.querySelectorAll('[data-off-del]').forEach(b=> b.addEventListener('click', async ()=>{
+      if(!confirm('この種を消しますか？')) return;
+      await sb.from('vn_posts').delete().eq('id', b.dataset.offDel);
+      S.posts = S.posts.filter(p=>p.id!==b.dataset.offDel);
+      renderPostsManage();
+    }));
+  }
   const ib = document.getElementById('insightBody');
   if(ib){
     ib.value = localStorage.getItem('vn-insight-draft') || '';
@@ -898,7 +920,7 @@ const WS_SPARK_COLORS = ['#ffd23f','#ff5a3c','#5ce1a6','#43d9ff','#ff7ab6','#fff
 const WS = { dx:0, drag:false, hold:0, raf:0, startX:0, press:0, held:false, deciding:false, deal:0, ret:false, banner:false, toastMsg:'', toastTimer:0, bannerTimer:0, insight:false };
 function wsGenreOf(p){ return p.genre || 'all'; }
 function wsGenreMeta(g){ return WS_GENRES.find(x=>x[0]===g) || WS_GENRES[0]; }
-function wsCandidates(){ return S.posts.filter(p=>p.status==='candidate'); }
+function wsCandidates(){ return S.posts.filter(p=>p.status==='candidate' && !p.deck_off); }
 function wsBuildOrder(){
   const asc = [...wsCandidates()].sort((a,b)=> new Date(a.created_at)-new Date(b.created_at));
   S.wsOrder = asc.map(p=>p.id);
@@ -945,6 +967,7 @@ function wsBindCommon(el){
     if(act === 'pick-pack'){ S.wsGenre = b.dataset.genre; S.wsMode = 'card'; WS.deal++; WS.ret = false; renderDeck(); }
     if(act === 'to-manage'){ S.wsMode = 'manage'; S.postTab = 'draft'; S.postOpen = null; renderPostsManage(); }
     if(act === 'pass') wsPass();
+    if(act === 'off') wsOff();
     if(act === 'undo') wsUndo();
     if(act === 'decide') wsDecide();
     if(act === 'blank') wsBlank();
@@ -1027,6 +1050,7 @@ function wsCardHTML(){
     <div style="display:flex;justify-content:center;gap:26px;padding:6px 0 14px">
       <button data-ws="blank" style="height:44px;border:none;background:transparent;color:#5ce1a6;font-size:15px;cursor:pointer">＋ 白紙から</button>
       <button data-ws="insight-open" style="height:44px;border:none;background:transparent;color:#5ce1a6;font-size:15px;cursor:pointer">＋ 気づき</button>
+      <button data-ws="off" style="height:44px;border:none;background:transparent;color:#ff8a75;font-size:15px;cursor:pointer">いらない</button>
     </div>
   </div>
   ${WS.deciding ? '<div style="position:absolute;inset:0;pointer-events:none"><div style="position:absolute;inset:0;background:#ffd23f;animation:wsFlash .5s ease-out forwards"></div>'+sparks+'<div style="position:absolute;left:0;right:0;top:38%;display:flex;justify-content:center"><div style="font-size:64px;color:#ffd23f;text-shadow:4px 0 #0b1510,-4px 0 #0b1510,0 4px #0b1510,0 -4px #0b1510,8px 8px 0 #ff5a3c;animation:wsPop .45s cubic-bezier(.2,.9,.3,1.4) forwards">これだ！</div></div></div>' : ''}
@@ -1157,6 +1181,17 @@ function wsUndo(){
     wsToast('パスした札を戻した');
     return;
   }
+  if(l.type === 'off'){
+    sb.from('vn_posts').update({ deck_off: false, updated_at: new Date().toISOString() }).eq('id', l.id).then(({ error })=>{
+      if(error){ toast('戻せませんでした'); return; }
+      const p = S.posts.find(x=>x.id===l.id);
+      if(p) p.deck_off = false;
+      S.wsOrder = l.order; S.wsLast = null; WS.deal++; WS.ret = true; S.wsMode = 'card';
+      renderDeck();
+      wsToast('外した札を戻した');
+    });
+    return;
+  }
   /* submit の取り消し */
   sb.from('vn_posts').update({ status: 'candidate', updated_at: new Date().toISOString() }).eq('id', l.id).then(({ error })=>{
     if(error){ toast('戻せませんでした'); return; }
@@ -1171,6 +1206,19 @@ function wsUndo(){
 function wsToastEdit(msg){
   const b = document.getElementById('wsEditToast');
   if(b){ b.textContent = '↶ ' + msg; b.style.display = 'block'; setTimeout(()=>{ b.style.display = 'none'; }, 1800); }
+}
+async function wsOff(){
+  const cur = wsDeck()[0];
+  if(!cur || WS.deciding) return;
+  const prevOrder = [...(S.wsOrder || [])];
+  const { error } = await sb.from('vn_posts').update({ deck_off: true, updated_at: new Date().toISOString() }).eq('id', cur.id);
+  if(error){ toast('外せませんでした'); return; }
+  cur.deck_off = true;
+  S.wsOrder = (S.wsOrder || []).filter(x=>x !== cur.id);
+  S.wsLast = { type: 'off', id: cur.id, order: prevOrder };
+  WS.deal++; WS.ret = false;
+  renderDeck();
+  toast('山から外しました');
 }
 function wsDecide(){
   const cur = wsDeck()[0];
