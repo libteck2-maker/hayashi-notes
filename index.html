@@ -11,91 +11,100 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --ink:#22302a; --ink2:#5a6a61; --paper:#f7f2e7; --card:#fffdf6;
-    --mori:#14342b; --mori2:#1e4d3f; --accent:#b98a2f; --line:#e2d9c6;
+    --ink:#1a1f1a; --ink2:#4b4f45; --paper:#10231a; --card:#fff6dc;
+    --mori:#0b1510; --mori2:#14342b; --accent:#b98a2f; --line:#d8cdb2;
     --danger:#b3402e; --ok:#2e7d4f;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
   html,body{margin:0; padding:0}
-  body{background:var(--paper); color:var(--ink);
-    font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
+  body{background-color:#10231a;
+    background-image:linear-gradient(rgba(92,225,166,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(92,225,166,.07) 1px,transparent 1px);
+    background-size:16px 16px; color:#fff6dc;
+    font-family:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP",sans-serif;
     font-size:15px; line-height:1.65; padding-bottom:84px}
-  h1,h2,h3,.serif{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif}
-  header{background:var(--mori); color:#f3ecd9; padding:14px 16px 12px; position:sticky; top:0; z-index:20}
+  h1,h2,h3,.serif{font-family:"DotGothic16",sans-serif}
+  header{background:#0b1510; color:#fff6dc; padding:14px 16px 12px; position:sticky; top:0; z-index:20; border-bottom:4px solid #ffd23f}
   header .ttl{font-size:19px; letter-spacing:.06em}
   header .sub{font-size:11px; opacity:.75; margin-top:2px}
   main{max-width:760px; margin:0 auto; padding:14px 12px}
-  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:0 0 12px;
-    box-shadow:0 1px 3px rgba(34,48,42,.06)}
+  .card{background:var(--card); color:var(--ink); border:4px solid #0b1510; border-radius:0; padding:14px; margin:0 0 14px;
+    box-shadow:6px 6px 0 #0b1510}
   .muted{color:var(--ink2); font-size:12.5px}
   .row{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   .grow{flex:1}
-  button{font:inherit; cursor:pointer; border-radius:10px; border:1px solid var(--line);
-    background:#fff; color:var(--ink); padding:8px 14px}
-  button.primary{background:var(--mori); color:#f3ecd9; border-color:var(--mori)}
-  button.gold{background:var(--accent); color:#fff; border-color:var(--accent)}
-  button.ghost{border-color:transparent; background:transparent; color:var(--ink2)}
-  button.small{padding:4px 10px; font-size:13px; border-radius:8px}
+  button{font-family:"DotGothic16",sans-serif; cursor:pointer; border-radius:0; border:3px solid #0b1510;
+    background:#fff6dc; color:var(--ink); padding:8px 14px; box-shadow:3px 3px 0 #0b1510}
+  button:active{transform:translate(2px,2px); box-shadow:1px 1px 0 #0b1510}
+  button.primary{background:#ffd23f; color:#0b1510; border-color:#0b1510}
+  button.gold{background:#ff8a2b; color:#0b1510; border-color:#0b1510}
+  button.ghost{border-color:transparent; background:transparent; color:var(--ink2); box-shadow:none}
+  button.ghost:active{transform:none; box-shadow:none}
+  button.small{padding:4px 10px; font-size:13px; border-radius:0; border-width:2px; box-shadow:2px 2px 0 #0b1510}
   button:disabled{opacity:.45}
-  .chip{display:inline-block; padding:3px 11px; border-radius:999px; border:1px solid var(--line);
-    background:#fff; font-size:12.5px; cursor:pointer; user-select:none}
-  .chip.on{background:var(--mori); color:#f3ecd9; border-color:var(--mori)}
-  .chip.tag-on{background:var(--accent); color:#fff; border-color:var(--accent)}
-  .badge{display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:6px; background:#e9e2cf; color:#6b5d33; vertical-align:2px}
+  .chip{display:inline-block; padding:3px 11px; border-radius:0; border:2px solid #0b1510;
+    background:#fff6dc; color:var(--ink); font-size:12.5px; cursor:pointer; user-select:none}
+  .chip.on{background:#14342b; color:#fff6dc; border-color:#0b1510}
+  .chip.tag-on{background:#ff8a2b; color:#0b1510; border-color:#0b1510}
+  .badge{display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:0; border:2px solid #0b1510; background:#e9e2cf; color:#6b5d33; vertical-align:2px}
   .badge.shorts{background:#dfe9e2; color:#2e5d43}
   .badge.live{background:#f3ddda; color:#8c3a2c}
   .badge.done{background:var(--mori2); color:#eaf2ec}
-  .badge.kind{background:var(--accent); color:#fff; font-size:11.5px; padding:2px 9px; border-radius:999px}
-  select.kindsel{width:auto; padding:4px 8px; font-size:13px; border-radius:8px}
+  .badge.kind{background:#ffd23f; color:#0b1510; font-size:11.5px; padding:2px 9px; border-radius:0}
+  select.kindsel{width:auto; padding:4px 8px; font-size:13px; border-radius:0}
   input[type=text],input[type=password],input[type=url],textarea,select{
-    font:inherit; width:100%; border:1px solid var(--line); border-radius:10px; padding:9px 11px;
-    background:#fff; color:var(--ink)}
+    font:inherit; width:100%; border:3px solid #0b1510; border-radius:0; padding:9px 11px;
+    background:#fffdf4; color:var(--ink)}
   textarea{resize:vertical; min-height:64px}
   label.flabel{display:block; font-size:12.5px; color:var(--ink2); margin:10px 0 4px}
-  .prog{height:10px; background:#e9e2cf; border-radius:99px; overflow:hidden}
-  .prog > div{height:100%; background:var(--mori2); border-radius:99px}
-  .big-num{font-size:26px; font-weight:700}
-  nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:30; background:rgba(20,52,43,.97);
+  .prog{height:10px; background:#e9e2cf; border:2px solid #0b1510; border-radius:0; overflow:hidden}
+  .prog > div{height:100%; background:#1e4d3f; border-radius:0}
+  .big-num{font-size:26px; font-weight:700; font-family:"DotGothic16",sans-serif}
+  nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:30; background:#0b1510; border-top:4px solid #ffd23f;
     display:flex; padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
-  nav.tabs button{flex:1; background:transparent; border:none; color:#cfd8cd; font-size:11.5px; padding:7px 2px; border-radius:8px}
-  nav.tabs button.on{color:#fff; background:rgba(255,255,255,.13)}
+  nav.tabs button{flex:1; background:transparent; border:none; box-shadow:none; color:#8fae9d; font-size:11.5px; padding:7px 2px; border-radius:0}
+  nav.tabs button:active{transform:none; box-shadow:none}
+  nav.tabs button.on{color:#ffd23f; background:rgba(255,210,63,.13)}
   nav.tabs .ic{display:block; font-size:17px; line-height:1.2}
   .vrow{display:flex; gap:10px; padding:11px 4px; border-bottom:1px solid var(--line); cursor:pointer; align-items:flex-start}
   .vrow:last-child{border-bottom:none}
-  .vrow .thumb{width:104px; flex:none; border-radius:8px; aspect-ratio:16/9; object-fit:cover; background:#ddd}
+  .vrow .thumb{width:104px; flex:none; border-radius:0; border:2px solid #0b1510; aspect-ratio:16/9; object-fit:cover; background:#ddd}
   .vrow .vt{font-size:14px; line-height:1.45}
   .seg{padding:7px 9px; border-radius:8px; cursor:pointer; font-size:13.5px}
-  .seg:hover{background:#f0e9d8}
+  .seg:hover{background:#f0e1ba}
   .seg .st{color:var(--accent); font-size:11.5px; margin-right:7px; font-variant-numeric:tabular-nums}
-  details.shiryo{border:1px dashed var(--line); border-radius:12px; padding:10px 12px; background:#fbf7ec}
+  details.shiryo{border:2px dashed #0b1510; border-radius:0; padding:10px 12px; background:#fdf6dd}
   details.shiryo summary{cursor:pointer; font-size:13.5px; color:var(--ink2)}
   .savestate{font-size:12px; color:var(--ink2)}
   .savestate.err{color:var(--danger)}
-  .pairbox{border-left:3px solid var(--accent); background:#fbf6e9; border-radius:0 10px 10px 0; padding:9px 12px; margin:0 0 9px}
+  .pairbox{border:3px solid #0b1510; border-left:8px solid var(--accent); background:#fbf3d5; border-radius:0; box-shadow:4px 4px 0 #0b1510; padding:9px 12px; margin:0 0 12px}
   .pairbox .q{font-size:14px}
   .pairbox .mine{font-size:14px; margin-top:5px}
   .media-grid{display:flex; gap:8px; flex-wrap:wrap}
-  .media-grid img{width:104px; height:104px; object-fit:cover; border-radius:10px}
-  .media-grid iframe{width:168px; height:95px; border:0; border-radius:10px}
+  .media-grid img{width:104px; height:104px; object-fit:cover; border-radius:0; border:2px solid #0b1510}
+  .media-grid iframe{width:168px; height:95px; border:2px solid #0b1510; border-radius:0}
   .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; z-index:50;
-    background:var(--mori); color:#f3ecd9; padding:9px 18px; border-radius:99px; font-size:13.5px;
+    background:#0b1510; color:#ffd23f; border:3px solid #ffd23f; padding:9px 18px; border-radius:0; font-size:13.5px;
+    font-family:"DotGothic16",sans-serif;
     opacity:0; pointer-events:none; transition:opacity .25s}
   .toast.show{opacity:1}
   .err{color:var(--danger); font-size:13px}
   .login-wrap{max-width:400px; margin:12vh auto 0; padding:0 16px}
   .hidden{display:none !important}
   a{color:var(--mori2)}
-  .foot{color:var(--ink2); font-size:11.5px; text-align:center; padding:18px 10px 4px}
+  .foot{color:#8fae9d; font-size:11.5px; text-align:center; padding:18px 10px 4px}
+  .foot button.ghost{color:#8fae9d}
+  #view-home > p.muted{color:#8fae9d}
+  #backToList{color:#5ce1a6}
 
-  .strip{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--line); border-radius:12px; padding:11px 13px; margin:0 0 9px; cursor:pointer}
+  .strip{background:var(--card); border:3px solid #0b1510; border-left:8px solid var(--line); border-radius:0; box-shadow:4px 4px 0 #0b1510; padding:11px 13px; margin:0 0 12px; cursor:pointer}
   .strip .shead{display:flex; gap:8px; align-items:baseline; font-size:11.5px; color:var(--ink2)}
   .strip .shead .cat{font-weight:700}
-  .refbox{margin-top:9px; border-left:3px solid var(--line); background:rgba(0,0,0,.03); padding:7px 10px; border-radius:0 8px 8px 0}
+  .refbox{margin-top:9px; border-left:3px solid var(--line); background:rgba(0,0,0,.03); padding:7px 10px; border-radius:0}
 .refbox .refhead{font-size:11px; color:var(--ink2); margin-bottom:3px}
 .refbox .refbody{font-size:13.5px; line-height:1.65; white-space:pre-wrap; word-break:break-word}
 .refbox.ai{border-left-color:#a5822a; background:rgba(165,130,42,.08)}
 .pmarks{margin-top:5px; display:flex; gap:6px; flex-wrap:wrap}
-.pmark{font-size:10.5px; padding:1px 7px; border-radius:99px; border:1px solid var(--line); color:var(--ink2)}
+.pmark{font-size:10.5px; padding:1px 7px; border-radius:0; border:2px solid #0b1510; color:var(--ink2)}
 .pmark.on{background:#a5822a; border-color:#a5822a; color:#fff}
 .strip .sdet{display:block; margin-top:2px; font-size:11.5px; color:var(--ink2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .strip .sbody{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif; font-size:16.5px; line-height:1.6; margin-top:4px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-line}
@@ -481,7 +490,7 @@ async function openVideo(vid){
     <div class="card">
       <div style="font-size:17px; line-height:1.5">${esc(v.title)}</div>
       <div class="muted" style="margin:3px 0 10px">${esc(v.channel_name)} ・ <span class="badge ${v.kind}">${KIND_LABEL[v.kind]}</span> ${fmtDur(v.duration_sec)}</div>
-      <div style="position:relative; padding-top:56.25%; border-radius:10px; overflow:hidden; background:#000">
+      <div style="position:relative; padding-top:56.25%; border-radius:0; border:3px solid #0b1510; overflow:hidden; background:#000">
         <iframe src="https://www.youtube-nocookie.com/embed/${v.video_id}" style="position:absolute; inset:0; width:100%; height:100%; border:0" allowfullscreen title="video"></iframe>
       </div>
       <div class="row" style="margin-top:10px">
