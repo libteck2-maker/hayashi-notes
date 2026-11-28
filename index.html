@@ -92,6 +92,10 @@
   .refbox{margin-top:9px; border-left:3px solid var(--line); background:rgba(0,0,0,.03); padding:7px 10px; border-radius:0 8px 8px 0}
 .refbox .refhead{font-size:11px; color:var(--ink2); margin-bottom:3px}
 .refbox .refbody{font-size:13.5px; line-height:1.65; white-space:pre-wrap; word-break:break-word}
+.refbox.ai{border-left-color:#a5822a; background:rgba(165,130,42,.08)}
+.pmarks{margin-top:5px; display:flex; gap:6px; flex-wrap:wrap}
+.pmark{font-size:10.5px; padding:1px 7px; border-radius:99px; border:1px solid var(--line); color:var(--ink2)}
+.pmark.on{background:#a5822a; border-color:#a5822a; color:#fff}
 .strip .sdet{display:block; margin-top:2px; font-size:11.5px; color:var(--ink2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .strip .sbody{font-family:"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif; font-size:16.5px; line-height:1.6; margin-top:4px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-line}
   .strip.open{cursor:default}
@@ -548,7 +552,7 @@ function bindNoteView(vid){
   });
   document.getElementById('progPostBtn').addEventListener('click', async ()=>{
     const body = '#インディーズ林インターン ' + watchedCount() + '/' + S.videos.length + '本目\n' + v.title + '\nhttps://www.youtube.com/watch?v=' + vid;
-    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, status: 'candidate', kind: '進捗' }).select().single();
+    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, rewrite: body, status: 'candidate', kind: '進捗' }).select().single();
     if(!error && data){ S.posts.unshift(data); toast('ポスト候補に入れました'); }
   });
   document.querySelectorAll('[data-note-input]').forEach(t=> t.addEventListener('input', ()=>onNoteInput(t.dataset.noteInput)));
@@ -566,7 +570,7 @@ function bindNoteView(vid){
     const text = (document.getElementById('grown-'+n.id)?.value || n.grown_text || '').trim();
     if(!text){ toast('②が空です'); return; }
     const body = text + '\nhttps://www.youtube.com/watch?v=' + vid + '\n#インディーズ林インターン';
-    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, status: 'candidate' }).select().single();
+    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, rewrite: body, status: 'candidate' }).select().single();
     if(!error && data){ S.posts.unshift(data); toast('ポスト候補に入れました'); }
   }));
   document.getElementById('newNoteBtn').addEventListener('click', async ()=>{
@@ -601,7 +605,7 @@ function bindNoteView(vid){
     const p = S.pairs.find(x=>x.id===b.dataset.makePostPair);
     if(!p) return;
     const body = '林「' + p.quote + '」' + (p.quote_ts!=null? '（'+fmtClock(p.quote_ts)+'）':'') + '\n俺：' + p.my_line + '\nhttps://www.youtube.com/watch?v=' + vid + '\n#インディーズ林インターン';
-    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, status: 'candidate', kind: '対決' }).select().single();
+    const { data, error } = await sb.from('vn_posts').insert({ video_id: vid, body, rewrite: body, status: 'candidate', kind: '対決' }).select().single();
     if(!error && data){ S.posts.unshift(data); toast('ポスト候補に入れました'); }
   }));
   document.getElementById('saveManualTr').addEventListener('click', async ()=>{
@@ -698,7 +702,7 @@ function renderPosts(){
   const inTab = S.posts.filter(p=>p.status===tab);
   const SRC_CHIPS = [['all','すべて'],['video','視聴ノート'],['horibako','放り箱'],['sekisho','関所の解体'],['kaigi','ありさとの会議'],['moko','モコとの会話'],['insight','工房の気づき']];
   let rows = inTab.filter(p=> sf==='all' || postSourceCat(p).key===sf);
-  if(q) rows = rows.filter(p=> (p.body||'').indexOf(q)>=0 || (p.source||'').indexOf(q)>=0 || ((S.vmap[p.video_id]||{}).title || '').indexOf(q)>=0);
+  if(q) rows = rows.filter(p=> (p.body||'').indexOf(q)>=0 || (p.rewrite||'').indexOf(q)>=0 || (p.source||'').indexOf(q)>=0 || ((S.vmap[p.video_id]||{}).title || '').indexOf(q)>=0);
   if(tab==='candidate' && sf==='all' && !q){
     const recent = Date.now() - 14*86400000;
     const postedKinds = new Set(S.posts.filter(p=>p.status==='posted' && new Date(p.updated_at||p.created_at).getTime()>recent).map(p=>postKindOf(p)));
@@ -726,21 +730,28 @@ function renderPosts(){
       + '<span>'+len+'字'+(len>140 ? ' <span class="longmark">140字超</span>' : '')+'</span></div>'
       + (det ? '<span class="sdet">'+esc(det)+'</span>' : '');
     if(S.postOpen !== p.id){
+      const marks = (p.ai_draft ? '<span class="pmark">AI案（叩き台）あり</span>' : '') + (p.rewrite ? '<span class="pmark on">直しあり</span>' : '');
       return '<div class="strip'+bakeClass(p)+'" data-cat="'+cat.key+'" data-open-strip="'+p.id+'">'+head
-        + '<div class="sbody">'+esc(p.body)+'</div></div>';
+        + (marks ? '<div class="pmarks">'+marks+'</div>' : '')
+        + '<div class="sbody">'+esc(p.body || p.rewrite || '')+'</div></div>';
     }
+    const rwSaved = localStorage.getItem('vn-rewrite-'+p.id);
+    const rwText = rwSaved !== null ? rwSaved : (p.rewrite || '');
     return '<div class="strip open'+bakeClass(p)+'" data-cat="'+cat.key+'">'+head
-      + '<textarea id="post-'+p.id+'" data-post-input="'+p.id+'" style="min-height:96px; margin-top:8px">'+esc(p.body)+'</textarea>'
+      + (p.body ? '<div class="refbox"><div class="refhead">種（元の言葉）</div><div class="refbody">'+linkify(p.body)+'</div></div>' : '')
+      + (p.ai_draft ? '<div class="refbox ai"><div class="refhead">AI案（叩き台）― そのままでは出さない</div><div class="refbody">'+linkify(p.ai_draft)+'</div></div>' : '')
+      + (p.ref_text ? '<div class="refbox"><div class="refhead">元のポスト（叩き台）</div><div class="refbody">'+linkify(p.ref_text)+'</div></div>' : '')
+      + '<div class="refhead" style="margin-top:10px; font-size:11px; color:var(--ink2)">あなたの直し（ポストになるのは、これだけ）</div>'
+      + '<textarea id="rw-'+p.id+'" data-rw-input="'+p.id+'" style="min-height:84px; margin-top:4px" placeholder="「もっとこう言えばいいやん」をここに">'+esc(rwText)+'</textarea>'
       + '<div class="row" style="margin-top:7px">'
-      + '<span class="savestate" id="pss-'+p.id+'"></span><span class="grow"></span>'
-      + '<button class="small" data-copy-post="'+p.id+'">コピー</button>'
-      + '<button class="small primary" data-x-post="'+p.id+'">Xで書く</button>'
+      + '<span class="savestate" id="rss-'+p.id+'"></span><span class="grow"></span>'
+      + '<button class="small" data-copy-rw="'+p.id+'">コピー</button>'
+      + '<button class="small primary" data-x-rw="'+p.id+'">Xで書く</button>'
       + (p.status==='candidate' ? '<button class="small" data-draft-post="'+p.id+'">下書きへ</button>' : '')
       + (p.status==='draft' ? '<button class="small" data-cand-post="'+p.id+'">候補へ戻す</button>' : '')
       + (p.status!=='posted' ? '<button class="small gold" data-done-post="'+p.id+'">投稿した</button>' : '<span class="muted">'+(p.post_url ? '<a href="'+esc(p.post_url)+'" target="_blank" rel="noopener">投稿を見る</a>' : '投稿済み')+'</span>')
       + '<button class="small ghost" data-del-post="'+p.id+'">消す</button>'
       + '</div>'
-      + (p.ref_text ? '<div class="refbox"><div class="refhead">元のポスト</div><div class="refbody">'+linkify(p.ref_text)+'</div></div>' : '')
       + (cat.detail ? '<div class="muted" style="margin-top:5px">出典：'+linkify(cat.detail)+'</div>' : '')
       + '</div>';
   };
@@ -774,7 +785,7 @@ function renderPosts(){
   document.getElementById('insightBtn').addEventListener('click', async ()=>{
     const body = (document.getElementById('insightBody').value || '').trim();
     if(!body){ toast('気づきを書いてください'); return; }
-    const { data, error } = await sb.from('vn_posts').insert({ body, status: 'candidate', kind: '気づき' }).select().single();
+    const { data, error } = await sb.from('vn_posts').insert({ body, rewrite: body, status: 'candidate', kind: '気づき' }).select().single();
     if(error || !data){ toast('入れられませんでした'); return; }
     localStorage.removeItem('vn-insight-draft');
     S.posts.unshift(data);
@@ -803,28 +814,34 @@ function renderPosts(){
     if(!error && data){ S.posts.unshift(data); if(S.postTab==='posted') S.postTab='draft'; S.postSrc='all'; S.postQ=''; S.postOpen = data.id; renderPosts(); }
   });
   el.querySelectorAll('[data-open-strip]').forEach(s=> s.addEventListener('click', ()=>{ S.postOpen = s.dataset.openStrip; S.reunionId = null; renderPosts(); }));
-  el.querySelectorAll('[data-post-input]').forEach(t=> t.addEventListener('input', ()=>{
-    const id = t.dataset.postInput;
-    const st = document.getElementById('pss-'+id); if(st) st.textContent = '端末に下書き…';
-    localStorage.setItem('vn-postdraft-'+id, t.value);
-    clearTimeout(saveTimers['post-'+id]);
-    saveTimers['post-'+id] = setTimeout(async ()=>{
-      const { error } = await sb.from('vn_posts').update({ body: t.value, updated_at: new Date().toISOString() }).eq('id', id);
-      const p = S.posts.find(x=>x.id===id); if(p) p.body = t.value;
+  el.querySelectorAll('[data-rw-input]').forEach(t=> t.addEventListener('input', ()=>{
+    const id = t.dataset.rwInput;
+    const st = document.getElementById('rss-'+id); if(st) st.textContent = '端末に下書き…';
+    localStorage.setItem('vn-rewrite-'+id, t.value);
+    const p0 = S.posts.find(x=>x.id===id); if(p0) p0.rewrite = t.value;
+    clearTimeout(saveTimers['rw-'+id]);
+    saveTimers['rw-'+id] = setTimeout(async ()=>{
+      const { error } = await sb.from('vn_posts').update({ rewrite: t.value, updated_at: new Date().toISOString() }).eq('id', id);
       if(st) st.textContent = error ? '保存できていません（端末には残っています）' : '保存済み';
-      if(!error) localStorage.removeItem('vn-postdraft-'+id);
+      if(!error) localStorage.removeItem('vn-rewrite-'+id);
     }, 900);
   }));
-  el.querySelectorAll('[data-copy-post]').forEach(b=> b.addEventListener('click', async ()=>{
-    const t = document.getElementById('post-'+b.dataset.copyPost);
+  el.querySelectorAll('[data-copy-rw]').forEach(b=> b.addEventListener('click', async ()=>{
+    const t = document.getElementById('rw-'+b.dataset.copyRw);
+    if(!t || !t.value.trim()){ toast('直しを書くとコピーできます'); return; }
     try{ await navigator.clipboard.writeText(t.value); toast('コピーしました'); }
     catch(e){ t.select(); document.execCommand('copy'); toast('コピーしました'); }
   }));
-  el.querySelectorAll('[data-x-post]').forEach(b=> b.addEventListener('click', ()=>{
-    const t = document.getElementById('post-'+b.dataset.xPost);
+  el.querySelectorAll('[data-x-rw]').forEach(b=> b.addEventListener('click', ()=>{
+    const t = document.getElementById('rw-'+b.dataset.xRw);
+    if(!t || !t.value.trim()){ toast('直しを書くとポストにできます'); return; }
     window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(t.value), '_blank');
   }));
   el.querySelectorAll('[data-draft-post]').forEach(b=> b.addEventListener('click', async ()=>{
+    const p = S.posts.find(x=>x.id===b.dataset.draftPost);
+    const rwEl = document.getElementById('rw-'+b.dataset.draftPost);
+    const rw = ((rwEl ? rwEl.value : '') || (p ? p.rewrite : '') || '').trim();
+    if(!rw){ toast('直しを書くと下書きにできます'); return; }
     const { error } = await sb.from('vn_posts').update({ status: 'draft', updated_at: new Date().toISOString() }).eq('id', b.dataset.draftPost);
     if(!error){ const p = S.posts.find(x=>x.id===b.dataset.draftPost); if(p) p.status='draft'; S.postTab='draft'; S.postOpen=null; renderPosts(); toast('下書きにしました'); }
   }));
@@ -892,7 +909,7 @@ function renderGrowth(){
     const p = S.pairs.find(x=>x.id===b.dataset.makePostPair);
     if(!p) return;
     const body = '林「' + p.quote + '」' + (p.quote_ts!=null? '（'+fmtClock(p.quote_ts)+'）':'') + '\n俺：' + p.my_line + '\nhttps://www.youtube.com/watch?v=' + p.video_id + '\n#インディーズ林インターン';
-    const { data, error } = await sb.from('vn_posts').insert({ video_id: p.video_id, body, status: 'candidate', kind: '対決' }).select().single();
+    const { data, error } = await sb.from('vn_posts').insert({ video_id: p.video_id, body, rewrite: body, status: 'candidate', kind: '対決' }).select().single();
     if(!error && data){ S.posts.unshift(data); toast('ポスト候補に入れました'); }
   }));
 }
